@@ -1,0 +1,96 @@
+@page "/agenda"
+@using Microsoft.AspNetCore.Components.Routing
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<div class="max-w-[1200px] mx-auto p-8 animate-in fade-in duration-500">
+    
+    @* --- CABECERA DE AGENDA --- *@
+    <div class="flex justify-between items-end mb-8 border-b-2 border-slate-200 pb-6">
+        <div>
+            <h1 class="text-4xl font-black text-slate-900 uppercase tracking-tighter">Mi Agenda</h1>
+            <p class="text-slate-500 font-bold italic">Lunes, 16 de Febrero de 2026</p>
+        </div>
+        <div class="flex gap-2">
+            <button class="bg-slate-800 text-white px-6 py-2 rounded font-black text-xs hover:bg-black transition uppercase">
+                + Nueva Tarea
+            </button>
+            <NavLink href="" class="bg-slate-200 text-slate-700 px-6 py-2 rounded font-black text-xs no-underline uppercase">
+                Escritorio
+            </NavLink>
+        </div>
+    </div>
+
+    @* --- FILTROS RÁPIDOS --- *@
+    <div class="flex gap-4 mb-6">
+        <span class="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase cursor-pointer">Todas</span>
+        <span class="bg-white border border-slate-300 text-slate-500 px-4 py-1 rounded-full text-[10px] font-black uppercase cursor-pointer hover:bg-slate-100">Pendientes</span>
+        <span class="bg-white border border-slate-300 text-slate-500 px-4 py-1 rounded-full text-[10px] font-black uppercase cursor-pointer hover:bg-slate-100">Completadas</span>
+    </div>
+
+    @* --- TABLA DE TAREAS --- *@
+    <div class="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                    <th class="p-4">Hora</th>
+                    <th class="p-4">Tarea / Actividad</th>
+                    <th class="p-4">Prioridad</th>
+                    <th class="p-4">Estado</th>
+                    <th class="p-4 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach (var tarea in tareas)
+                {
+                    <tr class="hover:bg-slate-50 transition cursor-default">
+                        <td class="p-4 font-mono font-bold text-slate-400 text-sm">@tarea.Hora</td>
+                        <td class="p-4">
+                            <div class="font-black text-slate-800 uppercase text-sm">@tarea.Titulo</div>
+                            <div class="text-xs text-slate-400 italic font-medium">@tarea.Descripcion</div>
+                        </td>
+                        <td class="p-4">
+                            @if (tarea.Prioridad == "ALTA")
+                            {
+                                <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[9px] font-black border border-red-200">ALTA</span>
+                            }
+                            else
+                            {
+                                <span class="bg-slate-100 text-slate-500 px-2 py-1 rounded text-[9px] font-black border border-slate-200">MEDIA</span>
+                            }
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full @(tarea.Completada ? "bg-green-500" : "bg-orange-400")"></div>
+                                <span class="text-[10px] font-bold text-slate-600 uppercase">@(tarea.Completada ? "Hecho" : "Pendiente")</span>
+                            </div>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button class="text-blue-600 font-black text-[10px] uppercase hover:underline">Editar</button>
+                            <span class="mx-2 text-slate-300">|</span>
+                            <button class="text-red-400 font-black text-[10px] uppercase hover:underline">Borrar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    // Datos de prueba para ver el diseño
+    public class Tarea {
+        public string Hora { get; set; }
+        public string Titulo { get; set; }
+        public string Descripcion { get; set; }
+        public string Prioridad { get; set; }
+        public bool Completada { get; set; }
+    }
+
+    private List<Tarea> tareas = new List<Tarea> {
+        new Tarea { Hora = "09:00", Titulo = "Revisión Facturas", Descripcion = "Repasar documentos pendientes de IVA", Prioridad = "ALTA", Completada = true },
+        new Tarea { Hora = "11:30", Titulo = "Llamar a Arandina", Descripcion = "Confirmar pedido de materiales", Prioridad = "MEDIA", Completada = false },
+        new Tarea { Hora = "13:00", Titulo = "Cierre de Caja", Descripcion = "Verificar cobros del turno de mañana", Prioridad = "ALTA", Completada = false },
+        new Tarea { Hora = "16:45", Titulo = "Reunión Logística", Descripcion = "Organizar rutas de reparto semana próxima", Prioridad = "MEDIA", Completada = false }
+    };
+}

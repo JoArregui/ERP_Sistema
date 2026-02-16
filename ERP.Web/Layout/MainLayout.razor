@@ -1,21 +1,16 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="flex h-screen w-screen overflow-hidden font-sans">
-    @* BARRA LATERAL IZQUIERDA (OSCURA) *@
-    <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-10">
-        <div class="p-6 border-b border-slate-800">
-            <h2 class="font-black text-xl tracking-tighter">ERP <span class="text-blue-500">SISTEMA</span></h2>
-        </div>
-        <nav class="flex-1 p-4 space-y-2">
-            <div class="p-3 bg-blue-600 rounded font-bold text-sm cursor-pointer">Escritorio</div>
-            <div class="p-3 hover:bg-slate-800 rounded text-sm text-slate-400 cursor-pointer">Mi Agenda</div>
-            <div class="p-3 hover:bg-slate-800 rounded text-sm text-slate-400 cursor-pointer">Control Llamadas</div>
-            <div class="p-3 hover:bg-slate-800 rounded text-sm text-slate-400 cursor-pointer border-t border-slate-800 mt-4">Ventas / Facturas</div>
-        </nav>
+<div class="flex h-screen bg-slate-100 overflow-hidden">
+    
+    @* BARRA LATERAL *@
+    <aside class="w-72 h-full flex-shrink-0">
+        <NavMenu />
     </aside>
 
-    @* CUERPO PRINCIPAL (GRIS CLARO) *@
-    <main class="flex-1 bg-slate-100 overflow-y-auto p-8">
-        @Body
+    @* CONTENIDO DINÁMICO *@
+    <main class="flex-1 h-full overflow-y-auto">
+        @* Aquí es donde Blazor 'inyecta' Home, Agenda o NuevaOperacion *@
+        @Body 
     </main>
-</div>
+
+</div>y

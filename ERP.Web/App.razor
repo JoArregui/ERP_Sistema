@@ -1,12 +1,16 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+﻿@* App.razor *@
+<Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <PageTitle>Not found</PageTitle>
+        <PageTitle>No encontrado</PageTitle>
         <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+            <div class="p-20 text-center">
+                <h1 class="text-4xl font-bold text-slate-800">404</h1>
+                <p class="text-slate-500">Esta página no existe o la ruta está mal escrita.</p>
+            </div>
         </LayoutView>
     </NotFound>
 </Router>
