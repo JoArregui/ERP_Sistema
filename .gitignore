@@ -1,0 +1,49 @@
+## [ Archivos de Compilación y Binarios ]
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Tt]est[Rr]esults/
+
+## [ Visual Studio ]
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+_ReSharper*/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## [ Visual Studio Code ]
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+## [ Herramientas de .NET Core / .NET 9 ]
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## [ Secretos y Configuración Local ]
+# Nunca subas contraseñas o cadenas de conexión reales
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.publishsettings
+
+## [ Node / Herramientas de Front-end (si usas Tailwind local) ]
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+## [ Sistemas Operativos ]
+Thumbs.db
+Desktop.ini
+.DS_Store
