@@ -10,13 +10,14 @@ namespace ERP.Services
     {
         public PdfService()
         {
+            // Configuración de licencia para uso comunitario
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
         public byte[] GenerarFacturaPdf(DocumentoComercial factura, Empresa empresa, Cliente? cliente)
         {
-            // Convertimos el color Hex de la DB a un formato que QuestPDF entienda
-            var colorMarca = empresa.ColorHex ?? "#000000";
+            // Fallback de seguridad para color de marca
+            var colorMarca = string.IsNullOrWhiteSpace(empresa.ColorHex) ? "#1e293b" : empresa.ColorHex;
 
             return Document.Create(container =>
             {
@@ -24,68 +25,85 @@ namespace ERP.Services
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(1, Unit.Centimetre);
+                    page.PageColor(Colors.White);
+                    // Corrección: Usamos un string para la fuente para evitar errores de constantes
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Helvetica"));
 
-                    // --- CABECERA DINÁMICA ---
+                    // --- CABECERA (Header) ---
                     page.Header().Row(row =>
                     {
                         row.RelativeItem().Column(col =>
                         {
-                            col.Item().Text(empresa.NombreComercial.ToUpper()).FontSize(22).SemiBold().FontColor(colorMarca);
-                            col.Item().Text(empresa.RazonSocial).FontSize(9).Italic();
-                            col.Item().Text($"CIF: {empresa.CIF}").FontSize(9);
-                            col.Item().Text(empresa.Direccion ?? "").FontSize(9);
-                            if (!string.IsNullOrEmpty(empresa.Telefono)) 
-                                col.Item().Text($"Telf: {empresa.Telefono}").FontSize(9);
+                            col.Item().Text(empresa.NombreComercial?.ToUpper() ?? "ERP SYSTEM").FontSize(24).ExtraBold().FontColor(colorMarca);
+                            col.Item().Text(empresa.RazonSocial).FontSize(10).SemiBold();
+                            col.Item().PaddingTop(2).Column(c => {
+                                c.Item().Text($"CIF: {empresa.CIF}").FontSize(9);
+                                c.Item().Text(empresa.Direccion ?? "Dirección no configurada").FontSize(9);
+                                if (!string.IsNullOrEmpty(empresa.Telefono)) 
+                                    c.Item().Text($"Teléfono: {empresa.Telefono}").FontSize(9);
+                                if (!string.IsNullOrEmpty(empresa.Email)) 
+                                    c.Item().Text($"Email: {empresa.Email}").FontSize(9);
+                            });
                         });
 
                         row.RelativeItem().AlignRight().Column(col =>
                         {
-                            col.Item().Background(colorMarca).PaddingHorizontal(10).Text(factura.Tipo.ToString().ToUpper())
-                                .FontSize(20).SemiBold().FontColor(Colors.White);
+                            col.Item().Background(colorMarca).PaddingHorizontal(10).PaddingVertical(5).Text(factura.Tipo.ToString().ToUpper())
+                                .FontSize(20).ExtraBold().FontColor(Colors.White);
                             
-                            col.Item().PaddingTop(5).Text($"Nº: {factura.NumeroDocumento}").SemiBold();
-                            col.Item().Text($"Fecha: {factura.Fecha:dd/MM/yyyy}");
+                            col.Item().PaddingTop(10).Text(x => {
+                                x.Span("Nº DOCUMENTO: ").SemiBold();
+                                x.Span(factura.NumeroDocumento).Bold().FontSize(12);
+                            });
+                            col.Item().Text(x => {
+                                x.Span("FECHA EMISIÓN: ").SemiBold();
+                                x.Span(factura.Fecha.ToString("dd/MM/yyyy"));
+                            });
                         });
                     });
 
-                    // --- CUERPO ---
+                    // --- CUERPO DEL DOCUMENTO (Content) ---
                     page.Content().PaddingVertical(1, Unit.Centimetre).Column(col =>
                     {
-                        // Datos del receptor con un diseño de "Caja"
+                        // Bloque de datos del cliente
                         col.Item().Row(row =>
                         {
-                            row.RelativeItem(0.5f); // Espacio vacío a la izquierda
-                            row.RelativeItem(0.5f).Border(0.5f).BorderColor(colorMarca).Padding(10).Column(c =>
+                            row.RelativeItem(0.5f); 
+                            row.RelativeItem(0.5f).Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(12).Column(c =>
                             {
-                                c.Item().Text("CLIENTE").FontSize(8).SemiBold().FontColor(colorMarca);
-                                c.Item().Text(cliente?.Nombre ?? "Cliente General").SemiBold();
-                                c.Item().Text($"NIF: {cliente?.CIF}");
+                                c.Item().Text("DATOS FISCALES DEL RECEPTOR").FontSize(8).ExtraBold().FontColor(colorMarca);
+                                c.Item().PaddingTop(4).Text(cliente?.RazonSocial ?? "CLIENTE CONTADO").Bold().FontSize(11);
+                                c.Item().Text($"CIF/NIF: {cliente?.CIF ?? "N/A"}");
                                 c.Item().Text(cliente?.Direccion ?? "");
+                                // Corrección: Usamos CodigoPostal en lugar de CP
+                                c.Item().Text($"{cliente?.CodigoPostal} {cliente?.Poblacion}");
+                                c.Item().Text(cliente?.Provincia ?? "");
                             });
                         });
 
-                        col.Item().PaddingTop(20);
+                        col.Item().PaddingTop(30);
 
-                        // Tabla con estilo visual mejorado
+                        // Tabla de artículos/servicios
                         col.Item().Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
                             {
-                                columns.RelativeColumn(3);
-                                columns.RelativeColumn();
-                                columns.RelativeColumn();
-                                columns.RelativeColumn();
+                                columns.RelativeColumn(4);
+                                columns.RelativeColumn(1);
+                                columns.RelativeColumn(1.5f);
+                                columns.RelativeColumn(1);
+                                columns.RelativeColumn(1.5f);
                             });
 
                             table.Header(header =>
                             {
-                                header.Cell().Element(CellStyle).Text("CONCEPTO");
+                                header.Cell().Element(CellStyle).Text("CONCEPTO / DESCRIPCIÓN");
                                 header.Cell().Element(CellStyle).AlignRight().Text("CANT.");
                                 header.Cell().Element(CellStyle).AlignRight().Text("PRECIO");
-                                header.Cell().Element(CellStyle).AlignRight().Text("TOTAL");
+                                header.Cell().Element(CellStyle).AlignRight().Text("IVA");
+                                header.Cell().Element(CellStyle).AlignRight().Text("SUBTOTAL");
 
-                                IContainer CellStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(1.5f).BorderColor(colorMarca).DefaultTextStyle(x => x.SemiBold());
+                                IContainer CellStyle(IContainer c) => c.PaddingVertical(8).BorderBottom(2).BorderColor(colorMarca).DefaultTextStyle(x => x.ExtraBold().FontSize(9));
                             });
 
                             if (factura.Lineas != null)
@@ -95,27 +113,59 @@ namespace ERP.Services
                                     table.Cell().Element(ContentStyle).Text(linea.DescripcionArticulo);
                                     table.Cell().Element(ContentStyle).AlignRight().Text(linea.Cantidad.ToString("N2"));
                                     table.Cell().Element(ContentStyle).AlignRight().Text($"{linea.PrecioUnitario:N2} €");
-                                    table.Cell().Element(ContentStyle).AlignRight().Text($"{(linea.Cantidad * linea.PrecioUnitario):N2} €");
+                                    table.Cell().Element(ContentStyle).AlignRight().Text($"{linea.PorcentajeIva}%");
+                                    
+                                    decimal subtotalLinea = linea.Cantidad * linea.PrecioUnitario;
+                                    table.Cell().Element(ContentStyle).AlignRight().Text($"{subtotalLinea:N2} €").SemiBold();
 
-                                    IContainer ContentStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3);
+                                    IContainer ContentStyle(IContainer c) => c.PaddingVertical(8).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3);
                                 }
                             }
                         });
 
-                        // Totales destacados
-                        col.Item().AlignRight().PaddingTop(20).Column(c =>
+                        // Bloque de Totales
+                        col.Item().AlignRight().PaddingTop(20).MinWidth(200).Column(c =>
                         {
-                            c.Item().Text($"Base Imponible: {factura.BaseImponible:N2} €");
-                            c.Item().Text($"I.V.A.: {factura.TotalIva:N2} €");
-                            c.Item().Background(Colors.Grey.Lighten4).Padding(5)
-                                .Text($"TOTAL FACTURA: {factura.Total:N2} €").FontSize(14).SemiBold().FontColor(colorMarca);
+                            c.Item().Row(r => {
+                                r.RelativeItem().Text("Base Imponible:").AlignRight();
+                                r.RelativeItem().PaddingRight(5).Text($"{factura.BaseImponible:N2} €").AlignRight();
+                            });
+                            
+                            c.Item().Row(r => {
+                                r.RelativeItem().Text("Cuota I.V.A.:").AlignRight();
+                                r.RelativeItem().PaddingRight(5).Text($"{factura.TotalIva:N2} €").AlignRight();
+                            });
+
+                            c.Item().PaddingTop(5).Background(colorMarca).Padding(8).Row(r => {
+                                r.RelativeItem().Text("TOTAL DOCUMENTO").FontColor(Colors.White).ExtraBold().FontSize(12);
+                                r.RelativeItem().Text($"{factura.Total:N2} €").FontColor(Colors.White).ExtraBold().FontSize(12).AlignRight();
+                            });
                         });
+
+                        if (factura.Tipo == TipoDocumento.Factura)
+                        {
+                            col.Item().PaddingTop(40).Column(c => {
+                                c.Item().Text("INFORMACIÓN DE PAGO").FontSize(8).Bold();
+                                c.Item().Text("El pago se realizará según las condiciones pactadas en su ficha de cliente.").FontSize(8).FontColor(Colors.Grey.Medium);
+                            });
+                        }
                     });
 
-                    page.Footer().AlignRight().Text(x =>
+                    page.Footer().Row(row =>
                     {
-                        x.Span("Página ").FontSize(8);
-                        x.CurrentPageNumber().FontSize(8);
+                        row.RelativeItem().Text(x =>
+                        {
+                            x.Span("Documento generado por ERP Sistema - ").FontSize(8);
+                            x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(8);
+                        });
+
+                        row.RelativeItem().AlignRight().Text(x =>
+                        {
+                            x.Span("Página ").FontSize(8);
+                            x.CurrentPageNumber().FontSize(8);
+                            x.Span(" de ").FontSize(8);
+                            x.TotalPages().FontSize(8);
+                        });
                     });
                 });
             }).GeneratePdf();

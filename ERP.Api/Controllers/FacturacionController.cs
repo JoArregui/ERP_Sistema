@@ -25,36 +25,71 @@ namespace ERP.Api.Controllers
         [HttpPost("crear-factura")]
         public async Task<IActionResult> CrearFactura([FromBody] DocumentoComercial factura)
         {
-            // Extraer el EmpresaId del Token del usuario (Multi-tenant)
             var empresaIdClaim = User.FindFirst("EmpresaId")?.Value;
-            if (string.IsNullOrEmpty(empresaIdClaim)) return Unauthorized("No se encontró la empresa del usuario.");
+            if (string.IsNullOrEmpty(empresaIdClaim)) return Unauthorized("Sesión inválida.");
             
             int empresaId = int.Parse(empresaIdClaim);
             factura.EmpresaId = empresaId;
             factura.Fecha = DateTime.Now;
 
-            // 1. Calcular Totales de forma robusta
+            // --- CÁLCULO PROFESIONAL DE TOTALES ---
             factura.BaseImponible = factura.Lineas.Sum(l => l.Cantidad * l.PrecioUnitario);
-            factura.TotalIva = factura.BaseImponible * 0.21m; // Asumimos 21% para este ejemplo
+            factura.TotalIva = factura.Lineas.Sum(l => (l.Cantidad * l.PrecioUnitario) * (decimal)(l.PorcentajeIva / 100));
             factura.Total = factura.BaseImponible + factura.TotalIva;
 
-            // 2. Guardar en BD
-            _context.Documentos.Add(factura);
-            await _context.SaveChangesAsync();
-
-            // 3. Crear Vencimiento automático a 30 días
-            var vencimiento = new Vencimiento
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                DocumentoId = factura.Id,
-                FechaVencimiento = DateTime.Now.AddDays(30),
-                Importe = factura.Total,
-                Estado = "Pendiente",
-                EmpresaId = empresaId
-            };
-            _context.Vencimientos.Add(vencimiento);
-            await _context.SaveChangesAsync();
+                // 1. GESTIÓN DE STOCK (Antes de guardar la factura)
+                foreach (var linea in factura.Lineas)
+                {
+                    var articulo = await _context.Articulos.FindAsync(linea.ArticuloId);
+                    if (articulo == null) throw new Exception($"El artículo con ID {linea.ArticuloId} no existe.");
+                    
+                    if (articulo.Stock < linea.Cantidad)
+                    {
+                        // Opcional: Podrías permitir stock negativo si tu negocio lo requiere
+                        // throw new Exception($"Stock insuficiente para: {articulo.Descripcion}");
+                    }
 
-            return Ok(new { Message = "Factura creada y vencimiento programado.", FacturaId = factura.Id });
+                    articulo.Stock -= linea.Cantidad;
+                    _context.Articulos.Update(articulo);
+                }
+
+                // 2. PERSISTENCIA DEL DOCUMENTO
+                _context.Documentos.Add(factura);
+                await _context.SaveChangesAsync();
+
+                // 3. GESTIÓN DE VENCIMIENTOS (Tesorería)
+                var cliente = await _context.Clientes.FindAsync(factura.ClienteId);
+                var fechaVencimiento = DateTime.Now.AddDays(30);
+                
+                if (cliente != null && cliente.DiaPagoHabitual > 0)
+                {
+                    fechaVencimiento = new DateTime(fechaVencimiento.Year, fechaVencimiento.Month, cliente.DiaPagoHabitual);
+                    if (fechaVencimiento < DateTime.Now) fechaVencimiento = fechaVencimiento.AddMonths(1);
+                }
+
+                var vencimiento = new Vencimiento
+                {
+                    DocumentoId = factura.Id,
+                    FechaVencimiento = fechaVencimiento,
+                    Importe = factura.Total,
+                    Estado = "Pendiente",
+                    EmpresaId = empresaId
+                };
+                
+                _context.Vencimientos.Add(vencimiento);
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return Ok(new { Message = "Operación exitosa", Id = factura.Id });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest($"Error crítico: {ex.Message}");
+            }
         }
 
         [HttpGet("descargar-pdf/{id}")]
@@ -69,9 +104,10 @@ namespace ERP.Api.Controllers
 
             var empresa = await _context.Empresas.FindAsync(factura.EmpresaId);
             
-            byte[] pdfBytes = _pdfService.GenerarFacturaPdf(factura, empresa!, factura.Cliente);
+            // Generación del PDF
+            byte[] pdfBytes = _pdfService.GenerarFacturaPdf(factura, empresa!, factura.Cliente!);
             
-            return File(pdfBytes, "application/pdf", $"Factura_{factura.NumeroDocumento}.pdf");
+            return File(pdfBytes, "application/pdf", $"{factura.Tipo}_{factura.NumeroDocumento}.pdf");
         }
     }
 }

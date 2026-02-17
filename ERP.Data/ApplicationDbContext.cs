@@ -14,29 +14,26 @@ namespace ERP.Data
         public DbSet<Cliente> Clientes { get; set; }
         public DbSet<Proveedor> Proveedores { get; set; }
         public DbSet<Articulo> Articulos { get; set; }
+        public DbSet<FamiliaArticulo> FamiliaArticulo { get; set; }
         public DbSet<Empleado> Empleados { get; set; }
         public DbSet<ControlHorario> ControlesHorarios { get; set; }
         public DbSet<DocumentoComercial> Documentos { get; set; }
         public DbSet<DocumentoLinea> DocumentoLineas { get; set; }
         public DbSet<Vencimiento> Vencimientos { get; set; }
         public DbSet<Nomina> Nominas { get; set; }
+        public DbSet<CierreCaja> CierresCaja { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- 1. FILTROS GLOBALES ---
-            // Estos filtros ocultan registros "borrados" o "inactivos" automáticamente en todo el CMS
+            // --- 1. FILTROS GLOBALES (Soft Delete / Seguridad) ---
             modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.IsActivo);
-            
             modelBuilder.Entity<Articulo>().HasQueryFilter(a => !a.IsDescatalogado);
-            
             modelBuilder.Entity<Empleado>().HasQueryFilter(e => e.FechaBaja == null || e.FechaBaja > DateTime.Now);
-            
             modelBuilder.Entity<Proveedor>().HasQueryFilter(p => p.IsActivo);
 
-            // --- 2. CONFIGURACIÓN DE PRECISIÓN DECIMAL ---
-            // Aplica 18,4 a todos los campos decimales para evitar redondeos en contabilidad
+            // --- 2. CONFIGURACIÓN DE PRECISIÓN DECIMAL INDUSTRIAL ---
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 var properties = entityType.GetProperties()
@@ -49,10 +46,14 @@ namespace ERP.Data
                 }
             }
 
-            // --- 3. RESOLUCIÓN DE WARNINGS DE RELACIÓN (ISREQUIRED = FALSE) ---
-            // Al tener filtros globales, las relaciones deben ser opcionales para que EF Core
-            // no falle si un registro hijo apunta a un padre que está oculto por el filtro.
-            
+            // --- 3. RELACIONES Y ELIMINACIÓN EN CASCADA (Evitando Ciclos) ---
+
+            modelBuilder.Entity<Vencimiento>()
+                .HasOne(v => v.Empresa)
+                .WithMany()
+                .HasForeignKey(v => v.EmpresaId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             modelBuilder.Entity<ControlHorario>()
                 .HasOne(c => c.Empleado)
                 .WithMany()
@@ -74,16 +75,25 @@ namespace ERP.Data
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // --- 4. RELACIONES COMERCIALES ---
+            // --- 4. RELACIONES COMERCIALES (Referential Integrity) ---
             modelBuilder.Entity<DocumentoComercial>()
                 .HasOne(d => d.Cliente)
                 .WithMany()
+                .HasForeignKey(d => d.ClienteId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<DocumentoComercial>()
                 .HasOne(d => d.Proveedor)
                 .WithMany()
+                .HasForeignKey(d => d.ProveedorId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relación Líneas -> Documento (Cascada manual para asegurar limpieza)
+            modelBuilder.Entity<DocumentoLinea>()
+                .HasOne(l => l.Documento)
+                .WithMany(d => d.Lineas)
+                .HasForeignKey(l => l.DocumentoId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

@@ -8,34 +8,48 @@ namespace ERP.Domain.Entities
         [Key]
         public int Id { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "El DNI/NIE es obligatorio")]
         [StringLength(20)]
         public string DNI { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "El nombre es obligatorio")]
         [StringLength(100)]
         public string Nombre { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "Los apellidos son obligatorios")]
         [StringLength(100)]
         public string Apellidos { get; set; } = string.Empty;
 
+        [EmailAddress(ErrorMessage = "Formato de email incorrecto")]
         public string? Email { get; set; }
+        
+        public string? Telefono { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "El Nº de Seguridad Social es obligatorio")]
         public string NumeroSeguridadSocial { get; set; } = string.Empty;
 
+        // --- DATOS CONTRACTUALES ---
+        public string? Cargo { get; set; } // Ej: Contable, Comercial, Técnico
+        public string? Departamento { get; set; } // Ej: Administración, Ventas
+        
+        [Required]
         public DateTime FechaAlta { get; set; } = DateTime.Now;
         public DateTime? FechaBaja { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
-        public decimal SalarioBrutoAnual { get; set; } // Estándar profesional
+        public decimal SalarioBrutoAnual { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
         public decimal SalarioBaseMensual { get; set; }
 
+        // --- PAGO Y BANCO ---
+        [StringLength(34)]
+        public string? IBAN { get; set; } // Para transferencias de nómina
+
+        // --- LÓGICA DE ESTADO ---
         public bool IsActivo => !FechaBaja.HasValue || FechaBaja > DateTime.Now;
 
+        // --- RELACIONES ---
         public int EmpresaId { get; set; }
         [ForeignKey("EmpresaId")]
         public virtual Empresa? Empresa { get; set; }

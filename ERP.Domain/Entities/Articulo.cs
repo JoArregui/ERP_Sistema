@@ -8,21 +8,33 @@ namespace ERP.Domain.Entities
         [Key]
         public int Id { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "El código de artículo es obligatorio")]
         [StringLength(50)]
         public string Codigo { get; set; } = string.Empty;
 
-        [Required]
+        [Required(ErrorMessage = "La descripción es necesaria")]
         [StringLength(200)]
         public string Descripcion { get; set; } = string.Empty;
 
         [Column(TypeName = "decimal(18,4)")]
-        public decimal Precio { get; set; }
+        public decimal PrecioVenta { get; set; }
 
-        // Nuevo campo para control de inventario
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal PrecioCompra { get; set; } // Para calcular margen de beneficio
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PorcentajeIva { get; set; } = 21.00m;
+
         [Column(TypeName = "decimal(18,4)")]
         public decimal Stock { get; set; } = 0;
 
         public bool IsDescatalogado { get; set; } = false;
+
+        // --- RELACIÓN CON FAMILIA ---
+        [Required(ErrorMessage = "Debe asignar una familia al artículo")]
+        public int FamiliaId { get; set; }
+
+        [ForeignKey("FamiliaId")]
+        public virtual FamiliaArticulo? Familia { get; set; }
     }
 }

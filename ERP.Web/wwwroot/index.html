@@ -7,9 +7,37 @@
     <base href="/" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="css/app.css" rel="stylesheet" />
+    <style>
+        /* Animaciones suaves para la UI */
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 <body class="bg-slate-100">
-    <div id="app">Cargando sistema profesional...</div>
+    <div id="app">
+        <div class="flex flex-col items-center justify-center min-h-screen">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="text-slate-600 font-semibold">Cargando sistema profesional...</p>
+        </div>
+    </div>
+
     <script src="_framework/blazor.webassembly.js"></script>
+
+    <script>
+        window.downloadFile = (fileName, base64String) => {
+            const link = document.createElement('a');
+            link.download = fileName;
+            // Creamos un Blob a partir de la cadena Base64
+            link.href = 'data:application/pdf;base64,' + base64String;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+    </script>
 </body>
 </html>
