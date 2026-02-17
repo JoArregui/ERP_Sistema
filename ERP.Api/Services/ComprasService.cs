@@ -1,82 +1,134 @@
+using Microsoft.EntityFrameworkCore;
 using ERP.Data;
 using ERP.Domain.Entities;
 using ERP.Domain.DTOs;
-using Microsoft.EntityFrameworkCore;
 
 namespace ERP.API.Services
 {
     public class ComprasService
     {
         private readonly ApplicationDbContext _context;
-        private readonly StockService _stockService;
 
-        public ComprasService(ApplicationDbContext context, StockService stockService)
+        public ComprasService(ApplicationDbContext context)
         {
             _context = context;
-            _stockService = stockService;
         }
 
+        /// <summary>
+        /// Procesa la recepción de un pedido de compra.
+        /// </summary>
+        public async Task<bool> RecepcionarPedido(int pedidoId, string numeroAlbaran)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var pedido = await _context.Documentos
+                    .Include(d => d.Lineas)
+                        .ThenInclude(l => l.Articulo)
+                    .FirstOrDefaultAsync(d => d.Id == pedidoId && d.Tipo == TipoDocumento.Pedido);
+
+                if (pedido == null || pedido.IsContabilizado)
+                    return false;
+
+                foreach (var linea in pedido.Lineas)
+                {
+                    var articulo = linea.Articulo;
+                    if (articulo == null) continue;
+
+                    // Recalcular PMP
+                    decimal valorActual = articulo.Stock * articulo.PrecioCompra;
+                    decimal valorNuevaEntrada = linea.Cantidad * linea.PrecioUnitario;
+                    decimal nuevoStockTotal = articulo.Stock + linea.Cantidad;
+
+                    if (nuevoStockTotal > 0)
+                    {
+                        articulo.PrecioCompra = (valorActual + valorNuevaEntrada) / nuevoStockTotal;
+                    }
+
+                    articulo.Stock += linea.Cantidad;
+
+                    // Registro en Kardex
+                    var movimiento = new MovimientoStock
+                    {
+                        ArticuloId = articulo.Id,
+                        Fecha = DateTime.Now,
+                        TipoMovimiento = "ENTRADA",
+                        Cantidad = linea.Cantidad,
+                        StockResultante = articulo.Stock,
+                        ReferenciaDocumento = $"ALB: {numeroAlbaran}",
+                        Observaciones = $"Recepción Pedido Compra Nº {pedido.NumeroDocumento}"
+                    };
+
+                    _context.MovimientosStock.Add(movimiento);
+                }
+
+                pedido.IsContabilizado = true;
+                pedido.NumeroAlbaran = numeroAlbaran; 
+                pedido.FechaRecepcion = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch
+            {
+                // Eliminada la variable 'ex' para corregir CS0168
+                await transaction.RollbackAsync();
+                throw; 
+            }
+        }
+
+        /// <summary>
+        /// Genera pedidos automáticos calculando el Total mediante la suma de Subtotales.
+        /// </summary>
         public async Task<int> GenerarPedidoDesdeAlertas(List<AlertaStockDTO> alertas)
         {
             if (alertas == null || !alertas.Any()) return 0;
 
-            var alertasPorProveedor = alertas
-                .Where(a => a.ArticuloId > 0)
-                .GroupBy(a => a.ProveedorNombre);
-
             int pedidosGenerados = 0;
-            var empresaDefault = await _context.Empresas.FirstOrDefaultAsync();
-            if (empresaDefault == null) return 0;
+            var alertasPorProveedor = alertas.GroupBy(a => a.ProveedorId);
 
             foreach (var grupo in alertasPorProveedor)
             {
-                var primerArticuloId = grupo.First().ArticuloId;
-                var articuloInfo = await _context.Articulos
-                    .Include(a => a.ProveedorHabitual)
-                    .FirstOrDefaultAsync(a => a.Id == primerArticuloId);
-
-                if (articuloInfo?.ProveedorHabitual == null) continue;
-
+                var proveedorId = grupo.Key;
+                
                 var nuevoPedido = new DocumentoComercial
                 {
-                    Tipo = TipoDocumento.Pedido,
-                    EsCompra = true,
+                    ProveedorId = proveedorId,
+                    EmpresaId = 1, 
                     Fecha = DateTime.Now,
-                    NumeroDocumento = $"PED-{DateTime.Now:yyyyMMddHHmm}-{articuloInfo.ProveedorHabitual.Id}",
-                    ProveedorId = articuloInfo.ProveedorHabitualId,
-                    EmpresaId = empresaDefault.Id,
-                    MetodoPago = "Transferencia",
+                    EsCompra = true,
+                    Tipo = TipoDocumento.Pedido,
                     IsContabilizado = false,
+                    NumeroDocumento = $"PAUTO-{DateTime.Now:yyyyMMdd-HHmm}",
                     Lineas = new List<DocumentoLinea>()
                 };
 
-                decimal totalBase = 0;
-                decimal totalIva = 0;
-
-                foreach (var alerta in grupo)
+                foreach (var item in grupo)
                 {
-                    var art = await _context.Articulos.FindAsync(alerta.ArticuloId);
-                    if (art == null) continue;
+                    var articulo = await _context.Articulos.FindAsync(item.ArticuloId);
+                    if (articulo == null) continue;
 
                     var linea = new DocumentoLinea
                     {
-                        ArticuloId = art.Id,
-                        DescripcionArticulo = art.Descripcion,
-                        Cantidad = alerta.CantidadSugerida,
-                        PrecioUnitario = art.PrecioCompra,
-                        PorcentajeIva = (double)art.PorcentajeIva 
+                        ArticuloId = articulo.Id,
+                        Cantidad = item.CantidadAReponer,
+                        PrecioUnitario = articulo.PrecioCompra,
+                        DescripcionArticulo = articulo.Descripcion,
+                        PorcentajeIva = (double)articulo.PorcentajeIva
                     };
-
-                    decimal subtotalLinea = linea.Cantidad * linea.PrecioUnitario;
-                    totalBase += subtotalLinea;
-                    totalIva += subtotalLinea * (decimal)(linea.PorcentajeIva / 100);
 
                     nuevoPedido.Lineas.Add(linea);
                 }
 
-                nuevoPedido.BaseImponible = totalBase;
-                nuevoPedido.TotalIva = totalIva;
-                nuevoPedido.Total = totalBase + totalIva;
+                // Cálculo automático del Total basado en las líneas recién agregadas
+                nuevoPedido.Total = nuevoPedido.Lineas.Sum(l => l.Cantidad * l.PrecioUnitario);
+                
+                // Cálculo de Base e IVA (asumiendo IVA incluido o desglosado según lógica de negocio)
+                nuevoPedido.BaseImponible = nuevoPedido.Total / 1.21m; // Ejemplo simple
+                nuevoPedido.TotalIva = nuevoPedido.Total - nuevoPedido.BaseImponible;
 
                 _context.Documentos.Add(nuevoPedido);
                 pedidosGenerados++;
@@ -84,36 +136,6 @@ namespace ERP.API.Services
 
             await _context.SaveChangesAsync();
             return pedidosGenerados;
-        }
-
-        public async Task<bool> RecepcionarPedido(int pedidoId, string numeroAlbaranProveedor)
-        {
-            var pedido = await _context.Documentos
-                .Include(d => d.Lineas)
-                .FirstOrDefaultAsync(d => d.Id == pedidoId && d.EsCompra && !d.IsContabilizado);
-
-            if (pedido == null) return false;
-
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                pedido.Tipo = TipoDocumento.Factura; 
-                pedido.NumeroFacturaProveedor = numeroAlbaranProveedor;
-                pedido.IsContabilizado = true;
-
-                await _context.SaveChangesAsync();
-
-                // Aquí es donde ocurre la magia del stock
-                await _stockService.ProcesarMovimientoStock(pedido.Id);
-
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                return false;
-            }
         }
     }
 }

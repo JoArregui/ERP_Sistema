@@ -4,6 +4,7 @@ using ERP.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ERP.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260217153242_FacturacionYClientes")]
+    partial class FacturacionYClientes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,9 +42,6 @@ namespace ERP.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("EmpresaId")
-                        .HasColumnType("int");
 
                     b.Property<int>("FamiliaId")
                         .HasColumnType("int");
@@ -720,7 +720,7 @@ namespace ERP.Data.Migrations
 
             modelBuilder.Entity("ERP.Domain.Entities.Articulo", b =>
                 {
-                    b.HasOne("ERP.Domain.Entities.FamiliaArticulo", "FamiliaArticulo")
+                    b.HasOne("ERP.Domain.Entities.FamiliaArticulo", "Familia")
                         .WithMany("Articulos")
                         .HasForeignKey("FamiliaId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -734,7 +734,7 @@ namespace ERP.Data.Migrations
                         .WithMany()
                         .HasForeignKey("ProveedorHabitualId");
 
-                    b.Navigation("FamiliaArticulo");
+                    b.Navigation("Familia");
 
                     b.Navigation("ProveedorHabitual");
                 });

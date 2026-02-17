@@ -38,19 +38,19 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
         ValidateAudience = false,
-        ClockSkew = TimeSpan.Zero // Elimina el retraso de 5 min por defecto en la expiración del token
+        ClockSkew = TimeSpan.Zero 
     };
 });
 
-// --- 4. POLÍTICA DE CORS (VITAL PARA BLAZOR WASM) ---
+// --- 4. POLÍTICA DE CORS (CORREGIDA) ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        policy.WithOrigins("https://localhost:7001", "http://localhost:5001") // Ajusta según tus puertos de ERP.Web
+        policy.WithOrigins("http://localhost:5053") // Puerto de tu ERP.Web
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowCredentials(); // <--- ELIMINADO EL "Any", ahora es correcto
     });
 });
 
@@ -58,12 +58,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<NominaService>();
 builder.Services.AddScoped<PdfService>();
 builder.Services.AddScoped<CicloFacturacionService>();
+builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<ComprasService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddScoped<StockService>();
-builder.Services.AddScoped<ComprasService>();
 
 // --- 6. SWAGGER PROFESIONAL ---
 builder.Services.AddSwaggerGen(c =>
@@ -129,7 +128,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Importante: El CORS debe ir antes de Authentication y Authorization
+// El CORS debe ir antes de Authentication y Authorization
 app.UseCors("AllowBlazorClient");
 
 app.UseAuthentication();

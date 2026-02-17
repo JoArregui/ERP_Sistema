@@ -23,11 +23,22 @@ namespace ERP.Domain.Entities
         public string NumeroDocumento { get; set; } = string.Empty; 
 
         /// <summary>
-        /// Referencia externa opcional, útil para registrar el número de factura/albarán del proveedor.
+        /// Referencia del albarán o factura física entregada por el proveedor.
+        /// </summary>
+        [StringLength(100)]
+        public string? NumeroAlbaran { get; set; }
+
+        /// <summary>
+        /// Referencia externa opcional.
         /// </summary>
         public string? NumeroFacturaProveedor { get; set; }
 
         public DateTime Fecha { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// Fecha real en la que se confirma la entrada de mercancía en almacén.
+        /// </summary>
+        public DateTime? FechaRecepcion { get; set; }
 
         // --- RELACIÓN CON EMPRESA (Multi-empresa) ---
         [Required]
@@ -76,7 +87,6 @@ namespace ERP.Domain.Entities
 
         /// <summary>
         /// Notas internas o detalles del ajuste. 
-        /// Crucial para auditorías de Scanpal y regularizaciones.
         /// </summary>
         public string? Observaciones { get; set; } 
 

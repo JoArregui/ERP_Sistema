@@ -8,6 +8,10 @@ namespace ERP.Domain.Entities
         [Key]
         public int Id { get; set; }
 
+        // Obligatorio para el filtrado por empresa
+        [Required]
+        public int EmpresaId { get; set; }
+
         [Required(ErrorMessage = "El código de artículo es obligatorio")]
         [StringLength(50)]
         public string Codigo { get; set; } = string.Empty;
@@ -20,7 +24,7 @@ namespace ERP.Domain.Entities
         public decimal PrecioVenta { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
-        public decimal PrecioCompra { get; set; } // Representa el Coste Medio en el ERP
+        public decimal PrecioCompra { get; set; } 
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal PorcentajeIva { get; set; } = 21.00m;
@@ -28,10 +32,8 @@ namespace ERP.Domain.Entities
         [Column(TypeName = "decimal(18,4)")]
         public decimal Stock { get; set; } = 0;
 
-        // --- NUEVOS CAMPOS PARA CONTROL DE PROVEEDORES ---
-
         [Column(TypeName = "decimal(18,4)")]
-        public decimal StockMinimo { get; set; } = 0; // Alerta de reposición
+        public decimal StockMinimo { get; set; } = 0;
 
         public int? ProveedorHabitualId { get; set; }
         
@@ -44,7 +46,8 @@ namespace ERP.Domain.Entities
         [Required(ErrorMessage = "Debe asignar una familia al artículo")]
         public int FamiliaId { get; set; }
 
+        // Importante: El nombre en el ForeignKey debe coincidir con la propiedad de navegación
         [ForeignKey("FamiliaId")]
-        public virtual FamiliaArticulo? Familia { get; set; }
+        public virtual FamiliaArticulo? FamiliaArticulo { get; set; }
     }
 }

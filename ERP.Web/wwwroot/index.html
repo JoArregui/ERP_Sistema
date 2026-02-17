@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ERP SISTEMA</title>
     <base href="/" />
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="css/app.css" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+    
     <style>
         /* Animaciones suaves para la UI */
         .animate-fade-in {
@@ -15,6 +20,11 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Optimizaciones para la fuente de código de barras */
+        .barcode-font {
+            font-family: 'Libre Barcode 128', cursive;
         }
     </style>
 </head>
@@ -29,14 +39,19 @@
     <script src="_framework/blazor.webassembly.js"></script>
 
     <script>
+        // Utilidad para descarga de archivos (PDFs, Facturas, etc)
         window.downloadFile = (fileName, base64String) => {
             const link = document.createElement('a');
             link.download = fileName;
-            // Creamos un Blob a partir de la cadena Base64
             link.href = 'data:application/pdf;base64,' + base64String;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        };
+
+        // Utilidad para imprimir la ventana actual (usada en etiquetas)
+        window.printWindow = () => {
+            window.print();
         };
     </script>
 </body>

@@ -21,6 +21,9 @@ namespace ERP.Domain.Entities
         public decimal PrecioUnitario { get; set; }
         public double PorcentajeIva { get; set; }
 
+        /// <summary>
+        /// Calculado automáticamente. No se mapea a la base de datos.
+        /// </summary>
         [NotMapped]
         public decimal Subtotal => Cantidad * PrecioUnitario;
     }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ERP.Domain.Entities;
+using ERP.Domain.DTOs;
 using ERP.Services;
 using ERP.Data;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,29 @@ namespace ERP.Api.Controllers
             _pdfService = pdfService;
         }
 
+        /// <summary>
+        /// Obtiene el listado de facturas de la empresa del usuario autenticado
+        /// </summary>
+        [HttpGet("listado")]
+        public async Task<IActionResult> GetFacturas()
+        {
+            var empresaIdClaim = User.FindFirst("EmpresaId")?.Value;
+            if (string.IsNullOrEmpty(empresaIdClaim)) return Unauthorized("Sesión inválida.");
+
+            int empresaId = int.Parse(empresaIdClaim);
+
+            var lista = await _context.Documentos
+                .Include(d => d.Cliente)
+                .Where(d => d.EmpresaId == empresaId)
+                .OrderByDescending(d => d.Fecha)
+                .ToListAsync();
+
+            return Ok(lista);
+        }
+
+        /// <summary>
+        /// Crea una factura, gestiona el stock y genera el vencimiento en tesorería
+        /// </summary>
         [HttpPost("crear-factura")]
         public async Task<IActionResult> CrearFactura([FromBody] DocumentoComercial factura)
         {
@@ -46,12 +70,7 @@ namespace ERP.Api.Controllers
                     var articulo = await _context.Articulos.FindAsync(linea.ArticuloId);
                     if (articulo == null) throw new Exception($"El artículo con ID {linea.ArticuloId} no existe.");
                     
-                    if (articulo.Stock < linea.Cantidad)
-                    {
-                        // Opcional: Podrías permitir stock negativo si tu negocio lo requiere
-                        // throw new Exception($"Stock insuficiente para: {articulo.Descripcion}");
-                    }
-
+                    // Descuento de stock
                     articulo.Stock -= linea.Cantidad;
                     _context.Articulos.Update(articulo);
                 }
@@ -92,6 +111,9 @@ namespace ERP.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Genera el archivo PDF y lo devuelve codificado en Base64 para Blazor
+        /// </summary>
         [HttpGet("descargar-pdf/{id}")]
         public async Task<IActionResult> DescargarPdf(int id)
         {
@@ -103,11 +125,18 @@ namespace ERP.Api.Controllers
             if (factura == null) return NotFound();
 
             var empresa = await _context.Empresas.FindAsync(factura.EmpresaId);
+            if (empresa == null) return BadRequest("Datos de empresa no encontrados.");
             
-            // Generación del PDF
-            byte[] pdfBytes = _pdfService.GenerarFacturaPdf(factura, empresa!, factura.Cliente!);
+            // Generación del PDF usando el PdfService
+            byte[] pdfBytes = _pdfService.GenerarFacturaPdf(factura, empresa, factura.Cliente);
             
-            return File(pdfBytes, "application/pdf", $"{factura.Tipo}_{factura.NumeroDocumento}.pdf");
+            // El objeto JSON resultante es capturado por el servicio en Blazor 
+            // y descargado mediante la función JS interop "downloadFile"
+            return Ok(new 
+            { 
+                fileName = $"{factura.Tipo}_{factura.NumeroDocumento}.pdf", 
+                content = Convert.ToBase64String(pdfBytes) 
+            });
         }
     }
 }

@@ -1,0 +1,76 @@
+@page "/stock/auditoria"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<div class="container-fluid">
+    <div class="my-4">
+        <h1 class="text-4xl font-black text-slate-900 tracking-tighter italic uppercase">Auditoría de Stock</h1>
+        <p class="text-slate-500 font-mono text-xs uppercase">Reconstrucción de inventario por fecha de corte</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-3xl p-4 mb-4 bg-slate-50">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label class="text-[10px] font-black uppercase text-slate-400 mb-2 d-block">Fecha de Corte para Auditoría</label>
+                <input type="date" class="form-control border-0 rounded-2xl p-3 font-bold" @bind="fechaCorte" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-slate-900 text-white w-100 py-3 rounded-2xl font-black uppercase" @onclick="CargarInforme">
+                    <i class="bi bi-calculator me-2"></i> Calcular
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (datosAuditoria != null)
+    {
+        <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+            <table class="table table-hover mb-0">
+                <thead class="bg-slate-900 text-white text-[10px] uppercase">
+                    <tr>
+                        <th class="px-4 py-3">Código</th>
+                        <th class="px-4 py-3">Descripción</th>
+                        <th class="px-4 py-3 text-end">Stock Actual</th>
+                        <th class="px-4 py-3 text-end bg-blue-800">Stock a Fecha</th>
+                        <th class="px-4 py-3 text-end">PMP</th>
+                        <th class="px-4 py-3 text-end">Valoración</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (dynamic item in datosAuditoria)
+                    {
+                        <tr>
+                            <td class="px-4 py-3 font-black">@item.GetProperty("codigo").GetString()</td>
+                            <td class="px-4 py-3 text-slate-600">@item.GetProperty("descripcion").GetString()</td>
+                            <td class="px-4 py-3 text-end text-slate-400">@item.GetProperty("stockActual").GetDecimal().ToString("N2")</td>
+                            <td class="px-4 py-3 text-end font-black text-blue-700 bg-blue-50">@item.GetProperty("stockAFecha").GetDecimal().ToString("N2")</td>
+                            <td class="px-4 py-3 text-end italic">@item.GetProperty("pmp").GetDecimal().ToString("N2")€</td>
+                            <td class="px-4 py-3 text-end font-black">@item.GetProperty("valoracionAFecha").GetDecimal().ToString("N2")€</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="bg-slate-50 font-black">
+                    <tr>
+                        <td colspan="5" class="text-end uppercase">Total Valoración Inventario:</td>
+                        <td class="text-end text-xl">@totalValoracion.ToString("N2")€</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime fechaCorte = DateTime.Now;
+    private IEnumerable<System.Text.Json.JsonElement>? datosAuditoria;
+    private decimal totalValoracion = 0;
+
+    private async Task CargarInforme()
+    {
+        var url = $"api/stock/existencias-a-fecha?fechaCorte={fechaCorte:yyyy-MM-dd}";
+        datosAuditoria = await Http.GetFromJsonAsync<IEnumerable<System.Text.Json.JsonElement>>(url);
+        
+        if (datosAuditoria != null)
+            totalValoracion = datosAuditoria.Sum(x => x.GetProperty("valoracionAFecha").GetDecimal());
+    }
+}

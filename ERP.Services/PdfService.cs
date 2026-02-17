@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using ERP.Domain.Entities;
+using System;
 using System.Linq;
 
 namespace ERP.Services
@@ -26,7 +27,8 @@ namespace ERP.Services
                     page.Size(PageSizes.A4);
                     page.Margin(1, Unit.Centimetre);
                     page.PageColor(Colors.White);
-                    // Corrección: Usamos un string para la fuente para evitar errores de constantes
+                    
+                    // Configuración de la fuente predeterminada
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Helvetica"));
 
                     // --- CABECERA (Header) ---
@@ -75,7 +77,6 @@ namespace ERP.Services
                                 c.Item().PaddingTop(4).Text(cliente?.RazonSocial ?? "CLIENTE CONTADO").Bold().FontSize(11);
                                 c.Item().Text($"CIF/NIF: {cliente?.CIF ?? "N/A"}");
                                 c.Item().Text(cliente?.Direccion ?? "");
-                                // Corrección: Usamos CodigoPostal en lugar de CP
                                 c.Item().Text($"{cliente?.CodigoPostal} {cliente?.Poblacion}");
                                 c.Item().Text(cliente?.Provincia ?? "");
                             });
@@ -88,11 +89,11 @@ namespace ERP.Services
                         {
                             table.ColumnsDefinition(columns =>
                             {
-                                columns.RelativeColumn(4);
-                                columns.RelativeColumn(1);
-                                columns.RelativeColumn(1.5f);
-                                columns.RelativeColumn(1);
-                                columns.RelativeColumn(1.5f);
+                                columns.RelativeColumn(4);    // Concepto
+                                columns.RelativeColumn(1);    // Cantidad
+                                columns.RelativeColumn(1.5f); // Precio
+                                columns.RelativeColumn(1);    // IVA
+                                columns.RelativeColumn(1.5f); // Subtotal
                             });
 
                             table.Header(header =>
@@ -142,6 +143,7 @@ namespace ERP.Services
                             });
                         });
 
+                        // Información adicional (Pie de página interno)
                         if (factura.Tipo == TipoDocumento.Factura)
                         {
                             col.Item().PaddingTop(40).Column(c => {
@@ -151,6 +153,7 @@ namespace ERP.Services
                         }
                     });
 
+                    // --- PIE DE PÁGINA (Footer) ---
                     page.Footer().Row(row =>
                     {
                         row.RelativeItem().Text(x =>

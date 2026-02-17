@@ -14,7 +14,7 @@ namespace ERP.Data
         public DbSet<Cliente> Clientes { get; set; }
         public DbSet<Proveedor> Proveedores { get; set; }
         public DbSet<Articulo> Articulos { get; set; }
-        public DbSet<Familia> Familias { get; set; } // Corregido: Unificado con el controlador
+        public DbSet<Familia> Familias { get; set; } 
         public DbSet<Empleado> Empleados { get; set; }
         public DbSet<ControlHorario> ControlesHorarios { get; set; }
         public DbSet<DocumentoComercial> Documentos { get; set; }
@@ -22,6 +22,9 @@ namespace ERP.Data
         public DbSet<Vencimiento> Vencimientos { get; set; }
         public DbSet<Nomina> Nominas { get; set; }
         public DbSet<CierreCaja> CierresCaja { get; set; }
+        
+        // Registro del historial de movimientos (Kardex)
+        public DbSet<MovimientoStock> MovimientosStock { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -32,7 +35,7 @@ namespace ERP.Data
             modelBuilder.Entity<Articulo>().HasQueryFilter(a => !a.IsDescatalogado);
             modelBuilder.Entity<Empleado>().HasQueryFilter(e => e.FechaBaja == null || e.FechaBaja > DateTime.Now);
             modelBuilder.Entity<Proveedor>().HasQueryFilter(p => p.IsActivo);
-            modelBuilder.Entity<Familia>().HasQueryFilter(f => f.IsActiva); // Filtro para familias
+            modelBuilder.Entity<Familia>().HasQueryFilter(f => f.IsActiva); 
 
             // --- 2. CONFIGURACIÓN DE PRECISIÓN DECIMAL ---
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -49,7 +52,7 @@ namespace ERP.Data
 
             // --- 3. RELACIONES Y CASCADA ---
             modelBuilder.Entity<Articulo>()
-                .HasOne(a => a.Familia)
+                .HasOne(a => a.FamiliaArticulo)
                 .WithMany(f => f.Articulos)
                 .HasForeignKey(a => a.FamiliaId)
                 .OnDelete(DeleteBehavior.Restrict);

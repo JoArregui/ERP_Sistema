@@ -3,9 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using ERP.Domain.Entities;
 using ERP.Domain.DTOs;
 using ERP.Data;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ERP.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class ArticulosController : ControllerBase
@@ -17,15 +20,17 @@ namespace ERP.API.Controllers
             _context = context;
         }
 
+        // Helper para obtener el EmpresaId del Token actual
+        private int GetEmpresaId() => int.Parse(User.FindFirst("EmpresaId")?.Value ?? "0");
+
         // --- MÉTODOS DE SINCRONIZACIÓN PARA SCANPAL (OFFLINE-FIRST) ---
 
-        // GET: api/Articulos/scanpal/sincronizar
-        // Descarga el catálogo completo para la BD Local de Scanpal
         [HttpGet("scanpal/sincronizar")]
         public async Task<ActionResult> GetSincronizacionTotal()
         {
+            int empresaId = GetEmpresaId();
             var articulos = await _context.Articulos
-                .Where(a => !a.IsDescatalogado)
+                .Where(a => a.EmpresaId == empresaId && !a.IsDescatalogado)
                 .Select(a => new {
                     a.Id,
                     a.Codigo,
@@ -33,20 +38,19 @@ namespace ERP.API.Controllers
                     a.Stock,
                     a.PrecioVenta,
                     a.PrecioCompra,
-                    Familia = a.Familia != null ? a.Familia.Nombre : ""
+                    Familia = a.FamiliaArticulo != null ? a.FamiliaArticulo.Nombre : ""
                 })
                 .ToListAsync();
 
             return Ok(articulos);
         }
 
-        // GET: api/Articulos/scanpal/documentos-pendientes
-        // Descarga albaranes de compra y venta para puntear en Scanpal
         [HttpGet("scanpal/documentos-pendientes")]
         public async Task<ActionResult> GetDocumentosPendientes()
         {
+            int empresaId = GetEmpresaId();
             var documentos = await _context.Documentos
-                .Where(d => !d.IsContabilizado && (d.Tipo == TipoDocumento.Albaran || d.Tipo == TipoDocumento.Pedido))
+                .Where(d => d.EmpresaId == empresaId && !d.IsContabilizado && (d.Tipo == TipoDocumento.Albaran || d.Tipo == TipoDocumento.Pedido))
                 .Select(d => new {
                     d.Id,
                     d.Tipo,
@@ -66,18 +70,19 @@ namespace ERP.API.Controllers
             return Ok(documentos);
         }
 
-        // POST: api/Articulos/scanpal/subir-inventario
         [HttpPost("scanpal/subir-inventario")]
         public async Task<IActionResult> SincronizarInventarioMasivo([FromBody] List<AjusteStockDTO> lecturas)
         {
             if (lecturas == null || !lecturas.Any()) return BadRequest("No hay lecturas para procesar.");
 
-            var empresaId = await _context.Empresas.Select(e => e.Id).FirstOrDefaultAsync();
+            int empresaId = GetEmpresaId();
             var fechaSincro = DateTime.Now;
 
             foreach (var lectura in lecturas)
             {
-                var articulo = await _context.Articulos.FirstOrDefaultAsync(a => a.Codigo == lectura.CodigoBarras);
+                var articulo = await _context.Articulos
+                    .FirstOrDefaultAsync(a => a.EmpresaId == empresaId && a.Codigo == lectura.CodigoBarras);
+
                 if (articulo != null)
                 {
                     decimal stockAnterior = articulo.Stock;
@@ -106,20 +111,26 @@ namespace ERP.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Articulo>>> GetArticulos()
         {
-            return await _context.Articulos.Include(a => a.Familia).Include(a => a.ProveedorHabitual).ToListAsync();
+            int empresaId = GetEmpresaId();
+            return await _context.Articulos
+                .Include(a => a.FamiliaArticulo)
+                .Include(a => a.ProveedorHabitual)
+                .Where(a => a.EmpresaId == empresaId)
+                .ToListAsync();
         }
 
         [HttpGet("analisis-rentabilidad")]
         public async Task<ActionResult<IEnumerable<AnalisisRentabilidadDTO>>> GetRentabilidad()
         {
+            int empresaId = GetEmpresaId();
             return await _context.Articulos
-                .Include(a => a.Familia)
-                .Where(a => !a.IsDescatalogado)
+                .Include(a => a.FamiliaArticulo)
+                .Where(a => a.EmpresaId == empresaId && !a.IsDescatalogado)
                 .Select(a => new AnalisisRentabilidadDTO
                 {
                     Codigo = a.Codigo,
                     Descripcion = a.Descripcion,
-                    Familia = a.Familia != null ? a.Familia.Nombre : "Sin Familia",
+                    Familia = a.FamiliaArticulo != null ? a.FamiliaArticulo.Nombre : "Sin Familia",
                     PrecioCompra = a.PrecioCompra,
                     PrecioVenta = a.PrecioVenta,
                     StockActual = a.Stock
@@ -130,7 +141,12 @@ namespace ERP.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Articulo>> GetArticulo(int id)
         {
-            var articulo = await _context.Articulos.Include(a => a.Familia).Include(a => a.ProveedorHabitual).FirstOrDefaultAsync(a => a.Id == id);
+            int empresaId = GetEmpresaId();
+            var articulo = await _context.Articulos
+                .Include(a => a.FamiliaArticulo)
+                .Include(a => a.ProveedorHabitual)
+                .FirstOrDefaultAsync(a => a.Id == id && a.EmpresaId == empresaId);
+
             if (articulo == null) return NotFound();
             return articulo;
         }
@@ -138,7 +154,10 @@ namespace ERP.API.Controllers
         [HttpGet("by-codigo/{codigo}")]
         public async Task<ActionResult<Articulo>> GetArticuloByCodigo(string codigo)
         {
-            var articulo = await _context.Articulos.FirstOrDefaultAsync(a => a.Codigo == codigo);
+            int empresaId = GetEmpresaId();
+            var articulo = await _context.Articulos
+                .FirstOrDefaultAsync(a => a.Codigo == codigo && a.EmpresaId == empresaId);
+
             if (articulo == null) return NotFound(new { message = "Artículo no encontrado" });
             return articulo;
         }
@@ -146,6 +165,7 @@ namespace ERP.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Articulo>> PostArticulo(Articulo articulo)
         {
+            articulo.EmpresaId = GetEmpresaId();
             _context.Articulos.Add(articulo);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetArticulo), new { id = articulo.Id }, articulo);
@@ -155,21 +175,39 @@ namespace ERP.API.Controllers
         public async Task<IActionResult> PutArticulo(int id, Articulo articulo)
         {
             if (id != articulo.Id) return BadRequest();
+            
+            int empresaId = GetEmpresaId();
+            if (articulo.EmpresaId != empresaId) return Unauthorized("No tiene permisos para modificar este artículo.");
+
             _context.Entry(articulo).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
+            
+            try 
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ArticuloExists(id)) return NotFound();
+                else throw;
+            }
+
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteArticulo(int id)
         {
-            var articulo = await _context.Articulos.FindAsync(id);
+            int empresaId = GetEmpresaId();
+            var articulo = await _context.Articulos
+                .FirstOrDefaultAsync(a => a.Id == id && a.EmpresaId == empresaId);
+
             if (articulo == null) return NotFound();
+            
             articulo.IsDescatalogado = true;
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        private bool ArticuloExists(int id) => _context.Articulos.Any(e => e.Id == id);
+        private bool ArticuloExists(int id) => _context.Articulos.Any(e => e.Id == id && e.EmpresaId == GetEmpresaId());
     }
 }

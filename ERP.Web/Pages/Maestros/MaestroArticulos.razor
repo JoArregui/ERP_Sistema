@@ -1,0 +1,354 @@
+@page "/maestros/articulos"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using ERP.Domain.Entities
+@using ERP.Web.Services
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NotificationService Notify
+
+<div class="max-w-[1400px] mx-auto p-6 animate-in fade-in duration-700">
+    
+    @* --- SISTEMA DE NOTIFICACIONES LOCAL --- *@
+    <div class="fixed top-5 right-5 z-[100] flex flex-col gap-3">
+        @foreach (var note in activeNotifications)
+        {
+            <div class="p-4 rounded-lg shadow-2xl border-l-4 @GetNoteStyle(note.Type) animate-in slide-in-from-right duration-300 min-w-[320px] flex justify-between items-center bg-white">
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-black uppercase opacity-50">Logística e Inventario</span>
+                    <span class="text-xs font-bold uppercase">@note.Message</span>
+                </div>
+                <button @onclick="() => activeNotifications.Remove(note)" class="opacity-50 hover:opacity-100 ml-4">✕</button>
+            </div>
+        }
+    </div>
+
+    @* --- CABECERA --- *@
+    <div class="flex justify-between items-end mb-8 border-b border-slate-200 pb-6">
+        <div>
+            <nav class="text-[10px] font-black text-indigo-600 uppercase mb-2 tracking-widest">Almacén > Catálogo</nav>
+            <h1 class="text-4xl font-black text-slate-900 uppercase tracking-tighter italic">Maestro de Artículos</h1>
+        </div>
+        <div class="flex gap-3">
+            <button @onclick="CargarDatos" class="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition shadow-sm text-slate-500" title="Refrescar datos">
+                <span>🔄</span>
+            </button>
+            <button @onclick="NuevoArticulo" class="bg-slate-900 hover:bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs transition-all shadow-xl flex items-center gap-3 uppercase tracking-widest active:scale-95">
+                <span class="text-lg">＋</span> Registrar Artículo
+            </button>
+        </div>
+    </div>
+
+    @* --- FILTROS DE BÚSQUEDA --- *@
+    <div class="bg-slate-50 p-2 rounded-2xl mb-8 flex items-center gap-2 border border-slate-200/60 shadow-inner">
+        <div class="relative flex-1">
+            <input type="text" @bind="searchTerm" @bind:event="oninput" @onkeyup="Filtrar"
+                   placeholder="Buscar por código de barras, referencia o descripción..." 
+                   class="w-full pl-6 pr-4 py-3 bg-white border-none rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition" />
+        </div>
+        <select @onchange="CambiarFiltroEstado"
+                class="bg-white border-none rounded-xl py-3 px-6 text-[10px] font-black text-slate-500 shadow-sm outline-none cursor-pointer">
+            <option value="false">MOSTRAR ACTIVOS</option>
+            <option value="true">DESCATALOGADOS</option>
+        </select>
+    </div>
+
+    @* --- GRID DE PRODUCTOS --- *@
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        @if (articulosFiltrados == null)
+        {
+            <div class="p-20 text-center">
+                <div class="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando con almacén...</p>
+            </div>
+        }
+        else if (!articulosFiltrados.Any())
+        {
+            <div class="p-20 text-center uppercase font-black text-slate-300 tracking-tighter italic text-2xl">
+                No se han encontrado artículos
+            </div>
+        }
+        else
+        {
+            <table class="w-full text-left">
+                <thead class="bg-slate-50/50 border-b border-slate-100">
+                    <tr class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <th class="p-5">Referencia / Descripción</th>
+                        <th class="p-5">Familia</th>
+                        <th class="p-5 text-right">PVP (con IVA)</th>
+                        <th class="p-5 text-center">Stock</th>
+                        <th class="p-5 text-center">Estado</th>
+                        <th class="p-5 text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    @foreach (var art in articulosFiltrados)
+                    {
+                        <tr class="hover:bg-slate-50/80 transition-colors group">
+                            <td class="p-5">
+                                <div class="text-sm font-black text-slate-800 uppercase">@art.Descripcion</div>
+                                <div class="text-[9px] font-mono text-indigo-600 font-bold tracking-widest">@art.Codigo</div>
+                            </td>
+                            <td class="p-5">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded">
+                                    @(art.FamiliaArticulo?.Nombre ?? "GENERAL")
+                                </span>
+                            </td>
+                            <td class="p-5 text-right font-black text-slate-900">
+                                @art.PrecioVenta.ToString("N2")€
+                                <div class="text-[8px] text-slate-400 uppercase">IVA inc. (@art.PorcentajeIva%)</div>
+                            </td>
+                            <td class="p-5 text-center">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-sm font-black @(art.Stock <= art.StockMinimo ? "text-red-600" : "text-slate-800")">
+                                        @art.Stock.ToString("N0")
+                                    </span>
+                                    @if (art.Stock <= art.StockMinimo)
+                                    {
+                                        <span class="text-[7px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded uppercase animate-pulse">Stock Crítico</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="p-5 text-center">
+                                @if (art.IsDescatalogado)
+                                {
+                                    <span class="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase">Descatalogado</span>
+                                }
+                                else
+                                {
+                                    <span class="bg-emerald-50 text-emerald-600 border border-emerald-100 px-3 py-1 rounded-full text-[9px] font-black uppercase">Disponible</span>
+                                }
+                            </td>
+                            <td class="p-5 text-right">
+                                <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button @onclick="() => Editar(art.Id)" class="p-2 hover:bg-slate-900 hover:text-white rounded-lg transition-all" title="Editar ficha">✏️</button>
+                                    <button @onclick="() => Eliminar(art.Id)" class="p-2 hover:bg-red-600 hover:text-white rounded-lg transition-all" title="Eliminar artículo">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @* --- DRAWER DE EDICIÓN / ALTA --- *@
+    @if (mostrarFormulario)
+    {
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end">
+            <div class="w-full max-w-2xl bg-white h-full shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col">
+                <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-900 uppercase tracking-tighter italic">Ficha Técnica</h2>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gestión de Stock y Precios</p>
+                    </div>
+                    <button @onclick="CerrarFormulario" class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-white transition-all text-slate-400 border border-slate-200 shadow-sm">✕</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-10">
+                    <EditForm Model="@articuloActual" OnValidSubmit="GuardarArticulo">
+                        <DataAnnotationsValidator />
+
+                        <div class="space-y-8">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="col-span-1">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Referencia / SKU</label>
+                                    <InputText @bind-Value="articuloActual.Codigo" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase focus:bg-white outline-none transition-all" placeholder="REF-000" />
+                                    <ValidationMessage For="@(() => articuloActual.Codigo)" class="text-red-500 text-[10px] mt-1 font-bold italic" />
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Categoría / Familia</label>
+                                    <select @bind="articuloActual.FamiliaId" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white outline-none">
+                                        <option value="0">-- SELECCIONAR --</option>
+                                        @foreach (var fam in familias)
+                                        {
+                                            <option value="@fam.Id">@fam.Nombre.ToUpper()</option>
+                                        }
+                                    </select>
+                                    <ValidationMessage For="@(() => articuloActual.FamiliaId)" class="text-red-500 text-[10px] mt-1 font-bold italic" />
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Descripción Comercial</label>
+                                    <InputText @bind-Value="articuloActual.Descripcion" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase focus:bg-white outline-none" />
+                                    <ValidationMessage For="@(() => articuloActual.Descripcion)" class="text-red-500 text-[10px] mt-1 font-bold italic" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+                                <div>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Costo Neto</label>
+                                    <InputNumber @bind-Value="articuloActual.PrecioCompra" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none" />
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">PVP Final</label>
+                                    <InputNumber @bind-Value="articuloActual.PrecioVenta" class="w-full p-4 bg-indigo-50 border-2 border-indigo-100 rounded-xl font-black text-indigo-600 outline-none" />
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">% IVA</label>
+                                    <InputNumber @bind-Value="articuloActual.PorcentajeIva" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+                                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Stock en Almacén</label>
+                                    <InputNumber @bind-Value="articuloActual.Stock" class="w-full bg-transparent border-none text-2xl font-black outline-none" />
+                                </div>
+                                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Alerta de Mínimo</label>
+                                    <InputNumber @bind-Value="articuloActual.StockMinimo" class="w-full bg-transparent border-none text-2xl font-black outline-none text-red-500" />
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-6 p-5 bg-slate-900 text-white rounded-2xl">
+                                <label class="flex items-center gap-4 cursor-pointer w-full">
+                                    <InputCheckbox @bind-Value="articuloActual.IsDescatalogado" class="h-6 w-6 rounded border-none text-indigo-500 focus:ring-0" />
+                                    <div>
+                                        <span class="text-[10px] font-black uppercase block leading-none">Descatalogar Artículo</span>
+                                        <span class="text-[9px] opacity-50 uppercase tracking-widest">Ocultar de ventas activas</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div class="flex gap-4 pt-6">
+                                <button type="submit" class="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-900 transition-all shadow-xl active:scale-95">
+                                    Guardar en Catálogo
+                                </button>
+                                <button type="button" @onclick="CerrarFormulario" class="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase hover:bg-slate-200 transition-all">
+                                    Descartar
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Articulo>? articulos;
+    private List<Articulo> articulosFiltrados = new();
+    private List<FamiliaArticulo> familias = new();
+    private string searchTerm = "";
+    private bool filtroDescatalogado = false;
+    private bool mostrarFormulario = false;
+    private Articulo articuloActual = new();
+    private List<NotificationItem> activeNotifications = new();
+
+    protected override async Task OnInitializedAsync() => await CargarDatos();
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            articulos = await Http.GetFromJsonAsync<List<Articulo>>("api/articulos");
+            familias = await Http.GetFromJsonAsync<List<FamiliaArticulo>>("api/familiasarticulos") ?? new();
+            Filtrar();
+        }
+        catch
+        {
+            AddNotification("Error de conexión con el servidor", NotificationType.Error);
+        }
+    }
+
+    private void Filtrar()
+    {
+        if (articulos == null) return;
+        var s = searchTerm.ToLower();
+        articulosFiltrados = articulos.Where(a =>
+            (a.Codigo.ToLower().Contains(s) || a.Descripcion.ToLower().Contains(s)) &&
+            a.IsDescatalogado == filtroDescatalogado
+        ).ToList();
+        StateHasChanged();
+    }
+
+    private void CambiarFiltroEstado(ChangeEventArgs e)
+    {
+        if (bool.TryParse(e.Value?.ToString(), out bool val))
+        {
+            filtroDescatalogado = val;
+            Filtrar();
+        }
+    }
+
+    private void NuevoArticulo()
+    {
+        articuloActual = new Articulo { EmpresaId = 1, PorcentajeIva = 21.00m, FamiliaId = 0, Stock = 0, PrecioVenta = 0 };
+        mostrarFormulario = true;
+    }
+
+    private async Task Editar(int id)
+    {
+        articuloActual = await Http.GetFromJsonAsync<Articulo>($"api/articulos/{id}") ?? new();
+        mostrarFormulario = true;
+    }
+
+    private void CerrarFormulario() => mostrarFormulario = false;
+
+    private async Task GuardarArticulo()
+    {
+        if (articuloActual.FamiliaId == 0)
+        {
+            AddNotification("Debes asignar una familia al artículo", NotificationType.Warning);
+            return;
+        }
+
+        HttpResponseMessage response;
+        if (articuloActual.Id == 0)
+            response = await Http.PostAsJsonAsync("api/articulos", articuloActual);
+        else
+            response = await Http.PutAsJsonAsync($"api/articulos/{articuloActual.Id}", articuloActual);
+
+        if (response.IsSuccessStatusCode)
+        {
+            AddNotification("Catálogo actualizado correctamente", NotificationType.Success);
+            await CargarDatos();
+            CerrarFormulario();
+        }
+        else
+        {
+            AddNotification("No se pudo guardar el artículo", NotificationType.Error);
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "¿Deseas eliminar este artículo?"))
+        {
+            var response = await Http.DeleteAsync($"api/articulos/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                AddNotification("Artículo retirado", NotificationType.Warning);
+                await CargarDatos();
+            }
+        }
+    }
+
+    private void AddNotification(string msg, NotificationType type)
+    {
+        var note = new NotificationItem { Message = msg, Type = type };
+        activeNotifications.Add(note);
+        StateHasChanged();
+        Task.Delay(4000).ContinueWith(_ =>
+        {
+            activeNotifications.Remove(note);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private string GetNoteStyle(NotificationType type) => type switch
+    {
+        NotificationType.Success => "border-emerald-500 text-emerald-800",
+        NotificationType.Error   => "border-red-500 text-red-800",
+        _                        => "border-amber-500 text-amber-800"
+    };
+
+    private class NotificationItem
+    {
+        public string Message { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+    }
+
+    public enum NotificationType { Success, Error, Warning }
+}
