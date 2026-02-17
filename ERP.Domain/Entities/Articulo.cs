@@ -20,13 +20,23 @@ namespace ERP.Domain.Entities
         public decimal PrecioVenta { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
-        public decimal PrecioCompra { get; set; } // Para calcular margen de beneficio
+        public decimal PrecioCompra { get; set; } // Representa el Coste Medio en el ERP
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal PorcentajeIva { get; set; } = 21.00m;
 
         [Column(TypeName = "decimal(18,4)")]
         public decimal Stock { get; set; } = 0;
+
+        // --- NUEVOS CAMPOS PARA CONTROL DE PROVEEDORES ---
+
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal StockMinimo { get; set; } = 0; // Alerta de reposición
+
+        public int? ProveedorHabitualId { get; set; }
+        
+        [ForeignKey("ProveedorHabitualId")]
+        public virtual Proveedor? ProveedorHabitual { get; set; }
 
         public bool IsDescatalogado { get; set; } = false;
 

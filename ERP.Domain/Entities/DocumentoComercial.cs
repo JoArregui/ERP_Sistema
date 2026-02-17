@@ -10,36 +10,47 @@ namespace ERP.Domain.Entities
         [Key]
         public int Id { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "El tipo de documento es obligatorio")]
         public TipoDocumento Tipo { get; set; }
 
-        // Indica si es una Compra (true) o una Venta (false)
+        /// <summary>
+        /// Define la dirección del flujo: true para Compras (Entradas), false para Ventas (Salidas).
+        /// </summary>
         public bool EsCompra { get; set; } = false;
 
-        [Required]
+        [Required(ErrorMessage = "El número de documento es obligatorio")]
+        [StringLength(50)]
         public string NumeroDocumento { get; set; } = string.Empty; 
 
-        // Campo opcional para registrar el número de factura que nos envía el proveedor
+        /// <summary>
+        /// Referencia externa opcional, útil para registrar el número de factura/albarán del proveedor.
+        /// </summary>
         public string? NumeroFacturaProveedor { get; set; }
 
         public DateTime Fecha { get; set; } = DateTime.Now;
 
-        // Relación con Empresa
+        // --- RELACIÓN CON EMPRESA (Multi-empresa) ---
         [Required]
         public int EmpresaId { get; set; }
+        
         [ForeignKey("EmpresaId")]
         public virtual Empresa? Empresa { get; set; }
 
-        // Relación opcional con Cliente (Ventas)
+        // --- RELACIÓN CON CLIENTE (Ventas) ---
         public int? ClienteId { get; set; }
+        
         [ForeignKey("ClienteId")]
         public virtual Cliente? Cliente { get; set; }
 
-        // Relación opcional con Proveedor (Compras)
+        // --- RELACIÓN CON PROVEEDOR (Compras) ---
         public int? ProveedorId { get; set; }
+        
         [ForeignKey("ProveedorId")]
         public virtual Proveedor? Proveedor { get; set; }
 
+        /// <summary>
+        /// ID del documento del que proviene (ej. Pedido -> Albarán -> Factura)
+        /// </summary>
         public int? DocumentoOrigenId { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
@@ -51,18 +62,25 @@ namespace ERP.Domain.Entities
         [Column(TypeName = "decimal(18,4)")]
         public decimal Total { get; set; }
 
-        // --- CAMPOS NUEVOS PARA CIERRE Y ERP ---
+        // --- ESTADOS Y CONTROL ---
         
         /// <summary>
-        /// Flag para indicar que este documento ya pasó por un Cierre de Caja.
+        /// Indica si el documento ha sido cerrado, contabilizado o pasado por caja.
         /// </summary>
         public bool IsContabilizado { get; set; } = false;
 
         /// <summary>
-        /// Almacena el método: "Efectivo", "Tarjeta", "Transferencia".
+        /// Método utilizado: "Efectivo", "Tarjeta", "Transferencia".
         /// </summary>
         public string MetodoPago { get; set; } = "Efectivo";
 
+        /// <summary>
+        /// Notas internas o detalles del ajuste. 
+        /// Crucial para auditorías de Scanpal y regularizaciones.
+        /// </summary>
+        public string? Observaciones { get; set; } 
+
+        // --- RELACIÓN CON LAS LÍNEAS DEL DOCUMENTO ---
         public virtual ICollection<DocumentoLinea> Lineas { get; set; } = new List<DocumentoLinea>();
     }
 }

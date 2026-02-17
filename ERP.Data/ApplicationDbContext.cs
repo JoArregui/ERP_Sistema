@@ -14,7 +14,7 @@ namespace ERP.Data
         public DbSet<Cliente> Clientes { get; set; }
         public DbSet<Proveedor> Proveedores { get; set; }
         public DbSet<Articulo> Articulos { get; set; }
-        public DbSet<FamiliaArticulo> FamiliaArticulo { get; set; }
+        public DbSet<Familia> Familias { get; set; } // Corregido: Unificado con el controlador
         public DbSet<Empleado> Empleados { get; set; }
         public DbSet<ControlHorario> ControlesHorarios { get; set; }
         public DbSet<DocumentoComercial> Documentos { get; set; }
@@ -27,13 +27,14 @@ namespace ERP.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- 1. FILTROS GLOBALES (Soft Delete / Seguridad) ---
+            // --- 1. FILTROS GLOBALES ---
             modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.IsActivo);
             modelBuilder.Entity<Articulo>().HasQueryFilter(a => !a.IsDescatalogado);
             modelBuilder.Entity<Empleado>().HasQueryFilter(e => e.FechaBaja == null || e.FechaBaja > DateTime.Now);
             modelBuilder.Entity<Proveedor>().HasQueryFilter(p => p.IsActivo);
+            modelBuilder.Entity<Familia>().HasQueryFilter(f => f.IsActiva); // Filtro para familias
 
-            // --- 2. CONFIGURACIÓN DE PRECISIÓN DECIMAL INDUSTRIAL ---
+            // --- 2. CONFIGURACIÓN DE PRECISIÓN DECIMAL ---
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 var properties = entityType.GetProperties()
@@ -46,7 +47,12 @@ namespace ERP.Data
                 }
             }
 
-            // --- 3. RELACIONES Y ELIMINACIÓN EN CASCADA (Evitando Ciclos) ---
+            // --- 3. RELACIONES Y CASCADA ---
+            modelBuilder.Entity<Articulo>()
+                .HasOne(a => a.Familia)
+                .WithMany(f => f.Articulos)
+                .HasForeignKey(a => a.FamiliaId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Vencimiento>()
                 .HasOne(v => v.Empresa)
@@ -54,28 +60,12 @@ namespace ERP.Data
                 .HasForeignKey(v => v.EmpresaId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            modelBuilder.Entity<ControlHorario>()
-                .HasOne(c => c.Empleado)
-                .WithMany()
-                .HasForeignKey(c => c.EmpleadoId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Nomina>()
-                .HasOne(n => n.Empleado)
-                .WithMany()
-                .HasForeignKey(n => n.EmpleadoId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.Cascade);
-
             modelBuilder.Entity<DocumentoLinea>()
                 .HasOne(l => l.Articulo)
                 .WithMany()
                 .HasForeignKey(l => l.ArticuloId)
-                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // --- 4. RELACIONES COMERCIALES (Referential Integrity) ---
             modelBuilder.Entity<DocumentoComercial>()
                 .HasOne(d => d.Cliente)
                 .WithMany()
@@ -88,7 +78,6 @@ namespace ERP.Data
                 .HasForeignKey(d => d.ProveedorId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relación Líneas -> Documento (Cascada manual para asegurar limpieza)
             modelBuilder.Entity<DocumentoLinea>()
                 .HasOne(l => l.Documento)
                 .WithMany(d => d.Lineas)

@@ -1,0 +1,60 @@
+@page "/informes/rentabilidad"
+@using ERP.Domain.DTOs
+@inject HttpClient Http
+
+<div class="p-8 bg-slate-50 min-h-screen">
+    <div class="mb-8">
+        <h1 class="text-4xl font-black text-slate-900 italic tracking-tighter">ANÁLISIS DE RENTABILIDAD</h1>
+        <p class="text-slate-500 font-medium">Comparativa de Coste Medio vs. PVP</p>
+    </div>
+
+    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden">
+        <table class="w-full text-left">
+            <thead class="bg-slate-900 text-white text-[10px] uppercase tracking-widest">
+                <tr>
+                    <th class="px-6 py-5">Producto</th>
+                    <th class="px-6 py-5">Coste (PMC)</th>
+                    <th class="px-6 py-5">PVP</th>
+                    <th class="px-6 py-5">Margen %</th>
+                    <th class="px-6 py-5 text-right">Valor Stock</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach (var item in Datos)
+                {
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <span class="block font-bold text-slate-800">@item.Descripcion</span>
+                            <span class="text-[10px] text-slate-400 font-mono">@item.Codigo | @item.Familia</span>
+                        </td>
+                        <td class="px-6 py-4 text-slate-600 font-medium">@item.PrecioCompra.ToString("C2")</td>
+                        <td class="px-6 py-4 text-slate-900 font-bold">@item.PrecioVenta.ToString("C2")</td>
+                        <td class="px-6 py-4">
+                            @{
+                                var colorClase = item.MargenPorcentaje < 15 ? "bg-rose-100 text-rose-700" : 
+                                                 item.MargenPorcentaje < 30 ? "bg-amber-100 text-amber-700" : 
+                                                 "bg-emerald-100 text-emerald-700";
+                            }
+                            <span class="px-3 py-1 rounded-full text-xs font-black @colorClase">
+                                @item.MargenPorcentaje.ToString("N2")%
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono font-bold text-blue-600">
+                            @item.ValorInventario.ToString("C2")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<AnalisisRentabilidadDTO> Datos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<List<AnalisisRentabilidadDTO>>("api/articulos/analisis-rentabilidad");
+        if (result != null) Datos = result;
+    }
+}

@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using ERP.Data;
 using ERP.Domain.Entities;
 using ERP.Services;
+using ERP.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +61,9 @@ builder.Services.AddScoped<CicloFacturacionService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<ComprasService>();
 
 // --- 6. SWAGGER PROFESIONAL ---
 builder.Services.AddSwaggerGen(c =>

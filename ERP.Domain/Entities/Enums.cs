@@ -5,6 +5,7 @@ namespace ERP.Domain.Entities
         Presupuesto,
         Pedido,
         Albaran,
-        Factura
+        Factura,
+        AjusteStock // <--- Crucial para Scanpal y auditoría de almacén
     }
 }
