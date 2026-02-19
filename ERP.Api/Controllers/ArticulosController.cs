@@ -5,6 +5,7 @@ using ERP.Domain.DTOs;
 using ERP.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using MiniExcelLibs;
 
 namespace ERP.API.Controllers
 {
@@ -23,6 +24,71 @@ namespace ERP.API.Controllers
         // Helper para obtener el EmpresaId del Token actual
         private int GetEmpresaId() => int.Parse(User.FindFirst("EmpresaId")?.Value ?? "0");
 
+        // --- MÉTODOS DE IMPORTACIÓN Y EXCEL ---
+
+        [HttpPost("importar")]
+        public async Task<IActionResult> ImportarArticulos(IFormFile file)
+        {
+            if (file == null || file.Length == 0) return BadRequest("Archivo no válido.");
+
+            int empresaId = GetEmpresaId();
+            using var stream = file.OpenReadStream();
+            
+            // Leemos el Excel como una lista de diccionarios dinámicos
+            var rows = stream.Query().ToList();
+            int procesados = 0;
+            int creados = 0;
+
+            foreach (var row in rows)
+            {
+                // Mapeo flexible: intenta obtener valores por nombre de columna
+                string codigo = row.Codigo?.ToString() ?? "";
+                if (string.IsNullOrEmpty(codigo)) continue;
+
+                string descripcion = row.Descripcion?.ToString() ?? "Artículo sin nombre";
+                decimal precioCompra = Convert.ToDecimal(row.Costo ?? 0);
+                decimal precioVenta = Convert.ToDecimal(row.PVP ?? 0);
+                decimal stock = Convert.ToDecimal(row.Stock ?? 0);
+                
+                // Lógica Upsert: Buscar por Código y Empresa
+                var articuloExistente = await _context.Articulos
+                    .FirstOrDefaultAsync(a => a.Codigo == codigo && a.EmpresaId == empresaId);
+
+                if (articuloExistente != null)
+                {
+                    // ACTUALIZAR EXISTENTE
+                    articuloExistente.Descripcion = descripcion;
+                    articuloExistente.PrecioCompra = precioCompra;
+                    articuloExistente.PrecioVenta = precioVenta;
+                    articuloExistente.Stock = stock;
+                    articuloExistente.IsDescatalogado = false; // Re-activar si se vuelve a importar
+                    _context.Articulos.Update(articuloExistente);
+                }
+                else
+                {
+                    // CREAR NUEVO
+                    var nuevoArticulo = new Articulo
+                    {
+                        Codigo = codigo,
+                        Descripcion = descripcion,
+                        PrecioCompra = precioCompra,
+                        PrecioVenta = precioVenta,
+                        Stock = stock,
+                        EmpresaId = empresaId,
+                        FamiliaId = 1, // Por defecto asignar familia base
+                        PorcentajeIva = 21,
+                        IsDescatalogado = false
+                    };
+                    _context.Articulos.Add(nuevoArticulo);
+                    creados++;
+                }
+                procesados++;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Sincronización Excel finalizada. {procesados} procesados, {creados} nuevos." });
+        }
+
         // --- MÉTODOS DE SINCRONIZACIÓN PARA SCANPAL (OFFLINE-FIRST) ---
 
         [HttpGet("scanpal/sincronizar")]
@@ -38,7 +104,7 @@ namespace ERP.API.Controllers
                     a.Stock,
                     a.PrecioVenta,
                     a.PrecioCompra,
-                    Familia = a.FamiliaArticulo != null ? a.FamiliaArticulo.Nombre : ""
+                    Familia = a.Familia != null ? a.Familia.Nombre : ""
                 })
                 .ToListAsync();
 
@@ -106,35 +172,16 @@ namespace ERP.API.Controllers
             return Ok(new { message = "Sincronización masiva de inventario completada." });
         }
 
-        // --- MÉTODOS ESTÁNDAR Y REPORTES ---
+        // --- MÉTODOS CRUD ESTÁNDAR ---
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Articulo>>> GetArticulos()
         {
             int empresaId = GetEmpresaId();
             return await _context.Articulos
-                .Include(a => a.FamiliaArticulo)
+                .Include(a => a.Familia)
                 .Include(a => a.ProveedorHabitual)
                 .Where(a => a.EmpresaId == empresaId)
-                .ToListAsync();
-        }
-
-        [HttpGet("analisis-rentabilidad")]
-        public async Task<ActionResult<IEnumerable<AnalisisRentabilidadDTO>>> GetRentabilidad()
-        {
-            int empresaId = GetEmpresaId();
-            return await _context.Articulos
-                .Include(a => a.FamiliaArticulo)
-                .Where(a => a.EmpresaId == empresaId && !a.IsDescatalogado)
-                .Select(a => new AnalisisRentabilidadDTO
-                {
-                    Codigo = a.Codigo,
-                    Descripcion = a.Descripcion,
-                    Familia = a.FamiliaArticulo != null ? a.FamiliaArticulo.Nombre : "Sin Familia",
-                    PrecioCompra = a.PrecioCompra,
-                    PrecioVenta = a.PrecioVenta,
-                    StockActual = a.Stock
-                })
                 .ToListAsync();
         }
 
@@ -143,7 +190,7 @@ namespace ERP.API.Controllers
         {
             int empresaId = GetEmpresaId();
             var articulo = await _context.Articulos
-                .Include(a => a.FamiliaArticulo)
+                .Include(a => a.Familia)
                 .Include(a => a.ProveedorHabitual)
                 .FirstOrDefaultAsync(a => a.Id == id && a.EmpresaId == empresaId);
 
@@ -203,9 +250,29 @@ namespace ERP.API.Controllers
 
             if (articulo == null) return NotFound();
             
+            // Soft delete: Marcamos como descatalogado
             articulo.IsDescatalogado = true;
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        [HttpGet("analisis-rentabilidad")]
+        public async Task<ActionResult<IEnumerable<AnalisisRentabilidadDTO>>> GetRentabilidad()
+        {
+            int empresaId = GetEmpresaId();
+            return await _context.Articulos
+                .Include(a => a.Familia)
+                .Where(a => a.EmpresaId == empresaId && !a.IsDescatalogado)
+                .Select(a => new AnalisisRentabilidadDTO
+                {
+                    Codigo = a.Codigo,
+                    Descripcion = a.Descripcion,
+                    Familia = a.Familia != null ? a.Familia.Nombre : "Sin Familia",
+                    PrecioCompra = a.PrecioCompra,
+                    PrecioVenta = a.PrecioVenta,
+                    StockActual = a.Stock
+                })
+                .ToListAsync();
         }
 
         private bool ArticuloExists(int id) => _context.Articulos.Any(e => e.Id == id && e.EmpresaId == GetEmpresaId());

@@ -1,15 +1,29 @@
 using Microsoft.AspNetCore.Identity;
+using System;
 
 namespace ERP.Domain.Entities
 {
+    /// <summary>
+    /// Extensión de IdentityUser adaptada para el sistema ERP Industrial.
+    /// Incluye soporte para Multi-tenancy y perfiles de usuario extendidos.
+    /// </summary>
     public class ApplicationUser : IdentityUser
     {
-        public string NombreCompleto { get; set; } = string.Empty;
+        // Coincide con el UsersController (FullName)
+        public string FullName { get; set; } = string.Empty;
+
+        // Coincide con el UsersController (IsActivo)
+        public bool IsActivo { get; set; } = true;
+
+        // Auditoría real para el campo LastLogin del controlador
+        public DateTime? UltimoAcceso { get; set; }
+
+        // --- CONFIGURACIÓN MULTI-TENANCY ---
         
-        // Relación con la Empresa para el Multi-tenancy profesional
+        // ID de la empresa a la que pertenece el usuario
         public int EmpresaId { get; set; }
         
-        // Es buena práctica marcar la navegación como virtual para Lazy Loading si se usa
+        // Propiedad de navegación virtual para permitir Lazy Loading si fuera necesario
         public virtual Empresa? Empresa { get; set; }
     }
 }

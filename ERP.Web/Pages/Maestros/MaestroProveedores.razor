@@ -76,11 +76,11 @@
                             <td class="p-5 text-center">
                                 @if (prov.IsActivo)
                                 {
-                                    <span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase">✓</span>
+                                    <span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">✓ Activo</span>
                                 }
                                 else
                                 {
-                                    <span class="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase">✕</span>
+                                    <span class="bg-slate-100 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">✕ Inactivo</span>
                                 }
                             </td>
                             <td class="p-5 text-right">
@@ -96,7 +96,7 @@
         }
     </div>
 
-    @* --- DRAWER DE FORMULARIO --- *@
+    @* --- DRAWER DE FORMULARIO (MODAL LATERAL) --- *@
     @if (mostrarFormulario)
     {
         <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex justify-end">
@@ -116,17 +116,17 @@
                         <div class="space-y-8">
                             <div class="grid grid-cols-2 gap-6">
                                 <div class="col-span-2">
-                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Razón Social</label>
-                                    <InputText @bind-Value="proveedorActual.RazonSocial" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase" />
-                                    <ValidationMessage For="@(() => proveedorActual.RazonSocial)" class="text-red-500 text-[10px] font-bold" />
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Razón Social</label>
+                                    <InputText @bind-Value="proveedorActual.RazonSocial" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase focus:ring-2 focus:ring-rose-500/20 outline-none transition" />
+                                    <ValidationMessage For="@(() => proveedorActual.RazonSocial)" class="text-rose-600 text-[10px] font-bold uppercase mt-1" />
                                 </div>
                                 <div>
-                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">CIF / NIF</label>
-                                    <InputText @bind-Value="proveedorActual.CIF" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase" />
-                                    <ValidationMessage For="@(() => proveedorActual.CIF)" class="text-red-500 text-[10px] font-bold" />
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">CIF / NIF</label>
+                                    <InputText @bind-Value="proveedorActual.CIF" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase focus:ring-2 focus:ring-rose-500/20 outline-none transition" />
+                                    <ValidationMessage For="@(() => proveedorActual.CIF)" class="text-rose-600 text-[10px] font-bold uppercase mt-1" />
                                 </div>
                                 <div>
-                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Tipo Contable</label>
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Tipo Contable</label>
                                     <div class="flex h-[58px] bg-slate-100 p-1 rounded-xl">
                                         <button type="button" @onclick="() => proveedorActual.EsAcreedor = false" class="flex-1 rounded-lg text-[9px] font-black uppercase transition-all @(!proveedorActual.EsAcreedor ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")">Mercancía</button>
                                         <button type="button" @onclick="() => proveedorActual.EsAcreedor = true" class="flex-1 rounded-lg text-[9px] font-black uppercase transition-all @(proveedorActual.EsAcreedor ? "bg-white text-slate-900 shadow-sm" : "text-slate-400")">Servicios</button>
@@ -136,31 +136,31 @@
 
                             <div class="pt-8 border-t border-slate-100 space-y-6">
                                 <div>
-                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Persona de Contacto</label>
-                                    <InputText @bind-Value="proveedorActual.NombreContacto" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl" />
+                                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Persona de Contacto</label>
+                                    <InputText @bind-Value="proveedorActual.NombreContacto" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition" />
                                 </div>
                                 <div class="grid grid-cols-2 gap-6">
                                     <div>
-                                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Teléfono</label>
-                                        <InputText @bind-Value="proveedorActual.Telefono" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl" />
+                                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Teléfono</label>
+                                        <InputText @bind-Value="proveedorActual.Telefono" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition" />
                                     </div>
                                     <div>
-                                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Email</label>
-                                        <InputText @bind-Value="proveedorActual.Email" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl" />
+                                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">Email</label>
+                                        <InputText @bind-Value="proveedorActual.Email" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
-                                <InputCheckbox @bind-Value="proveedorActual.IsActivo" class="h-5 w-5 rounded text-rose-600" />
-                                <span class="text-[10px] font-black text-slate-700 uppercase">Proveedor Homologado y Activo</span>
+                            <div class="p-4 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-200/50">
+                                <InputCheckbox @bind-Value="proveedorActual.IsActivo" class="h-5 w-5 rounded text-rose-600 focus:ring-rose-500" />
+                                <span class="text-[10px] font-black text-slate-700 uppercase tracking-widest">Proveedor Homologado y Activo</span>
                             </div>
 
                             <div class="flex gap-4 pt-6">
-                                <button type="submit" class="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl">
+                                <button type="submit" class="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-600 transition-all shadow-xl active:scale-95">
                                     Sincronizar Proveedor
                                 </button>
-                                <button type="button" @onclick="CerrarFormulario" class="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase">
+                                <button type="button" @onclick="CerrarFormulario" class="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase hover:bg-slate-200 transition-all">
                                     Cancelar
                                 </button>
                             </div>
@@ -187,21 +187,26 @@
         try {
             proveedores = await Http.GetFromJsonAsync<List<Proveedor>>("api/proveedores");
             Filtrar();
-        } catch { /* Error de API */ }
+        } catch (Exception ex) { 
+            await Notificar($"Error de sincronización: {ex.Message}", "error");
+        }
     }
 
     private void Filtrar()
     {
         if (proveedores == null) return;
+        
         var s = searchTerm.ToLower();
-        proveedoresFiltrados = proveedores.Where(p => 
+        var temp = proveedores.Where(p => 
             p.RazonSocial.ToLower().Contains(s) || 
             p.CIF.ToLower().Contains(s) || 
             (p.NombreContacto?.ToLower().Contains(s) ?? false)
         ).ToList();
 
-        if (filtroTipo == "PROVEEDOR") proveedoresFiltrados = proveedoresFiltrados.Where(p => !p.EsAcreedor).ToList();
-        if (filtroTipo == "ACREEDOR") proveedoresFiltrados = proveedoresFiltrados.Where(p => p.EsAcreedor).ToList();
+        if (filtroTipo == "PROVEEDOR") temp = temp.Where(p => !p.EsAcreedor).ToList();
+        if (filtroTipo == "ACREEDOR") temp = temp.Where(p => p.EsAcreedor).ToList();
+        
+        proveedoresFiltrados = temp;
         StateHasChanged();
     }
 
@@ -211,26 +216,50 @@
     }
     
     private async Task Editar(int id) { 
-        proveedorActual = await Http.GetFromJsonAsync<Proveedor>($"api/proveedores/{id}") ?? new(); 
-        mostrarFormulario = true; 
+        try {
+            proveedorActual = await Http.GetFromJsonAsync<Proveedor>($"api/proveedores/{id}") ?? new(); 
+            mostrarFormulario = true; 
+        } catch {
+            await Notificar("No se pudo recuperar la ficha del proveedor", "error");
+        }
     }
 
     private void CerrarFormulario() => mostrarFormulario = false;
 
     private async Task GuardarProveedor()
     {
-        if (proveedorActual.Id == 0) await Http.PostAsJsonAsync("api/proveedores", proveedorActual);
-        else await Http.PutAsJsonAsync($"api/proveedores/{proveedorActual.Id}", proveedorActual);
-        
-        await CargarProveedores();
-        CerrarFormulario();
+        try {
+            HttpResponseMessage response;
+            if (proveedorActual.Id == 0) 
+                response = await Http.PostAsJsonAsync("api/proveedores", proveedorActual);
+            else 
+                response = await Http.PutAsJsonAsync($"api/proveedores/{proveedorActual.Id}", proveedorActual);
+
+            if (response.IsSuccessStatusCode) {
+                await Notificar("Base de datos de proveedores actualizada", "success");
+                await CargarProveedores();
+                CerrarFormulario();
+            } else {
+                await Notificar("Error al guardar los datos", "error");
+            }
+        } catch {
+            await Notificar("Fallo en la comunicación con el servidor", "error");
+        }
     }
 
     private async Task Eliminar(int id)
     {
-        if (await JS.InvokeAsync<bool>("confirm", "¿Eliminar proveedor de la base de datos?")) {
-            await Http.DeleteAsync($"api/proveedores/{id}");
-            await CargarProveedores();
+        var confirm = await JS.InvokeAsync<bool>("confirm", "¿Desea desactivar este proveedor de la cartera activa?");
+        if (confirm) {
+            var response = await Http.DeleteAsync($"api/proveedores/{id}");
+            if (response.IsSuccessStatusCode) {
+                await Notificar("Proveedor dado de baja", "success");
+                await CargarProveedores();
+            } else {
+                await Notificar("Error al procesar la baja", "error");
+            }
         }
     }
+
+    private async Task Notificar(string msg, string tipo) => await JS.InvokeVoidAsync("showToast", msg, tipo);
 }

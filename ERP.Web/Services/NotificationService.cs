@@ -12,7 +12,7 @@ namespace ERP.Web.Services
 
     public class NotificationService
     {
-        // Evento al que se suscribirá el MainLayout
+        // Evento al que se suscribirá el MainLayout o componentes locales
         public event Action<string, NotificationType>? OnShow;
 
         /// <summary>
@@ -24,5 +24,11 @@ namespace ERP.Web.Services
         {
             OnShow?.Invoke(message, type);
         }
+
+        // Métodos de conveniencia para mantener el código limpio
+        public void Success(string message) => ShowNotification(message, NotificationType.Success);
+        public void Error(string message) => ShowNotification(message, NotificationType.Error);
+        public void Warning(string message) => ShowNotification(message, NotificationType.Warning);
+        public void Info(string message) => ShowNotification(message, NotificationType.Info);
     }
 }

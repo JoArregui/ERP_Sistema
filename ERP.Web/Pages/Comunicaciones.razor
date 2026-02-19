@@ -1,0 +1,86 @@
+@page "/llamadas"
+@inject NavigationManager Navigation
+
+<div class="max-w-[1200px] mx-auto p-8 animate-in fade-in duration-500">
+    
+    @* CABECERA *@
+    <div class="flex justify-between items-end mb-8 border-b-2 border-slate-200 pb-6">
+        <div>
+            <h1 class="text-4xl font-black text-slate-900 uppercase tracking-tighter">Central de Comunicaciones</h1>
+            <p class="text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em]">Gestión de contactos y seguimiento telefónico</p>
+        </div>
+        <button class="bg-slate-900 text-white px-6 py-2 rounded-xl font-black text-[10px] hover:bg-blue-600 transition shadow-lg uppercase flex items-center gap-2">
+            <i class="bi bi-telephone-plus-fill"></i> Registrar Llamada
+        </button>
+    </div>
+
+    @* ESTADÍSTICAS RÁPIDAS *@
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="bg-blue-600 p-6 rounded-[2rem] text-white shadow-xl shadow-blue-900/20">
+            <div class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Pendientes Hoy</div>
+            <div class="text-3xl font-black">08</div>
+        </div>
+        <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Realizadas</div>
+            <div class="text-3xl font-black text-slate-800">24</div>
+        </div>
+        <div class="bg-rose-500 p-6 rounded-[2rem] text-white shadow-xl shadow-rose-900/20">
+            <div class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Urgentes</div>
+            <div class="text-3xl font-black">02</div>
+        </div>
+    </div>
+
+    @* LISTADO DE LLAMADAS *@
+    <div class="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+        <div class="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cola de llamadas prioritarias</span>
+            <div class="flex gap-2">
+                <i class="bi bi-filter-right text-slate-400"></i>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Filtrar por agente</span>
+            </div>
+        </div>
+        
+        <div class="divide-y divide-slate-100">
+            @foreach (var call in llamadasFicticias)
+            {
+                <div class="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                    <div class="flex items-center gap-5">
+                        <div class="w-12 h-12 @(call.Urgente ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-400") rounded-2xl flex items-center justify-center text-xl">
+                            <i class="bi @(call.Urgente ? "bi-telephone-exclamation-fill" : "bi-telephone-fill")"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-slate-800 uppercase text-sm tracking-tight">@call.Empresa</h3>
+                            <p class="text-[11px] text-slate-400 font-bold">@call.Motivo • <span class="text-blue-500">@call.Telefono</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <div class="text-right mr-4">
+                            <span class="block text-[10px] font-black text-slate-300 uppercase">Hace</span>
+                            <span class="text-xs font-bold text-slate-600">@call.Tiempo</span>
+                        </div>
+                        <button class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2">
+                            <i class="bi bi-telephone-outbound"></i> Llamar Ahora
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    public class Llamada {
+        public string Empresa { get; set; } = "";
+        public string Motivo { get; set; } = "";
+        public string Telefono { get; set; } = "";
+        public string Tiempo { get; set; } = "";
+        public bool Urgente { get; set; }
+    }
+
+    private List<Llamada> llamadasFicticias = new() {
+        new Llamada { Empresa = "CONSTRUCCIONES RUIZ S.A.", Motivo = "Presupuesto nave industrial", Telefono = "912 344 555", Tiempo = "15 min", Urgente = true },
+        new Llamada { Empresa = "PROVEEDOR METALES S.L.", Motivo = "Rotura de stock vigas", Telefono = "934 122 333", Tiempo = "1 hora", Urgente = true },
+        new Llamada { Empresa = "TALLERES J. JURADO", Motivo = "Seguimiento de entrega", Telefono = "955 667 889", Tiempo = "3 horas", Urgente = false }
+    };
+}

@@ -20,8 +20,12 @@ namespace ERP.Api.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Empleado>>> GetEmpleados()
         {
-            // Gracias al HasQueryFilter del DbContext, solo traerá los activos
-            return await _context.Empleados.Include(e => e.Empresa).ToListAsync();
+            // Cargamos los empleados incluyendo los datos de empresa si es necesario
+            // El filtro de FechaBaja == null suele gestionarse globalmente o aquí
+            return await _context.Empleados
+                .Where(e => e.FechaBaja == null)
+                .OrderBy(e => e.Apellidos)
+                .ToListAsync();
         }
 
         // GET: api/Empleados/5
@@ -29,9 +33,7 @@ namespace ERP.Api.Controllers
         public async Task<ActionResult<Empleado>> GetEmpleado(int id)
         {
             var empleado = await _context.Empleados.FindAsync(id);
-
             if (empleado == null) return NotFound();
-
             return empleado;
         }
 
@@ -39,19 +41,39 @@ namespace ERP.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<Empleado>> PostEmpleado(Empleado empleado)
         {
-            _context.Empleados.Add(empleado);
-            await _context.SaveChangesAsync();
+            try 
+            {
+                // Limpieza de navegación: Evitamos que EF intente crear una empresa nueva
+                empleado.Empresa = null!; 
+                
+                if (empleado.FechaAlta == default) empleado.FechaAlta = DateTime.Now;
+                
+                // Aseguramos que el estado inicial sea activo
+                empleado.FechaBaja = null;
 
-            return CreatedAtAction(nameof(GetEmpleado), new { id = empleado.Id }, empleado);
+                _context.Empleados.Add(empleado);
+                await _context.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetEmpleado), new { id = empleado.Id }, empleado);
+            }
+            catch (Exception)
+            {
+                return BadRequest("Error al crear la ficha del empleado. Verifique los datos obligatorios.");
+            }
         }
 
         // PUT: api/Empleados/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutEmpleado(int id, Empleado empleado)
         {
-            if (id != empleado.Id) return BadRequest();
+            if (id != empleado.Id) return BadRequest("El ID no coincide.");
 
+            // Desvinculamos la entidad Empresa para que no de error al actualizar
+            empleado.Empresa = null!;
             _context.Entry(empleado).State = EntityState.Modified;
+
+            // Evitamos que se modifiquen campos sensibles por accidente en el PUT simple
+            _context.Entry(empleado).Property(x => x.FechaAlta).IsModified = false;
 
             try
             {
@@ -73,11 +95,10 @@ namespace ERP.Api.Controllers
             var empleado = await _context.Empleados.FindAsync(id);
             if (empleado == null) return NotFound();
 
-            // En lugar de _context.Remove, marcamos la fecha de baja
+            // Marcamos la baja y guardamos
             empleado.FechaBaja = DateTime.Now;
             
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 

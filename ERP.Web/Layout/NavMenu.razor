@@ -1,105 +1,218 @@
-﻿@* NavMenu.razor *@
-<div class="flex flex-col h-full bg-[#111827] text-slate-400 font-sans shadow-2xl">
-    
-    @* LOGO *@
-    <div class="p-6 mb-4 border-b border-slate-800">
+﻿@namespace ERP.Web.Layout
+@using ERP.Domain.Constants
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ERP.Web.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+@* NavMenu.razor - Versión Premium con Seguridad Granular por Políticas *@
+<div class="flex flex-col h-full bg-[#0f172a] text-slate-400 font-sans shadow-2xl border-r border-slate-800/50">
+
+    @* LOGO CON EFECTO DE PROFUNDIDAD *@
+    <div class="p-8 mb-4">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-black shadow-lg shadow-blue-900/50">
+            <div
+                class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black shadow-xl shadow-blue-500/20 ring-1 ring-white/20">
                 E
             </div>
-            <span class="text-white font-black tracking-tighter text-xl uppercase">SISTEMA <span class="text-blue-500">ERP</span></span>
+            <div class="flex flex-col leading-none">
+                <span class="text-white font-black tracking-tighter text-lg uppercase">SISTEMA <span
+                    class="text-blue-500">ERP</span></span>
+                    <span class="text-[8px] font-bold text-slate-500 tracking-[0.3em] mt-1 uppercase">Industrial Hub</span>
+                </div>
+            </div>
+        </div>
+
+        @* NAVEGACIÓN *@
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+
+            @* SECCIÓN: DASHBOARD *@
+            <div class="pb-2 px-3 mt-4">
+                <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">General</span>
+            </div>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="" Match="NavLinkMatch.All"
+                ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-house-door-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Escritorio</span>
+            </NavLink>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="dashboard" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-pie-chart-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Insights</span>
+            </NavLink>
+
+            @* SECCIÓN: OPERATIVO *@
+            <div class="pt-6 pb-2 px-3">
+                <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Operativa TPV</span>
+            </div>
+
+            <AuthorizeView Policy="Ventas.Facturar">
+                <Authorized>
+                    <NavLink
+                        class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                        href="nueva-operacion" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                        <i class="bi bi-calculator-fill text-lg"></i>
+                        <span class="text-[10px] uppercase font-black tracking-widest">Nueva Venta</span>
+                    </NavLink>
+
+                    <NavLink
+                        class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                        href="cierre-caja" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                        <i class="bi bi-safe2-fill text-lg"></i>
+                        <span class="text-[10px] uppercase font-black tracking-widest">Cierre de Caja</span>
+                    </NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            @* SECCIÓN: ADMINISTRACIÓN *@
+            <div class="pt-6 pb-2 px-3">
+                <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Administración</span>
+            </div>
+
+            @* Compras y Vencimientos *@
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="compras" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-cart-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Compras</span>
+            </NavLink>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="vencimientos" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-calendar-check-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Vencimientos</span>
+            </NavLink>
+
+            @* SECCIÓN: RECURSOS HUMANOS *@
+            <div class="pt-6 pb-2 px-3">
+                <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Recursos Humanos</span>
+            </div>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="rrhh/kiosko" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-display text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Control Horario</span>
+            </NavLink>
+
+            <AuthorizeView Roles="Admin,RRHH">
+                <Authorized>
+                    <NavLink
+                        class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                        href="rrhh/empleados" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                        <i class="bi bi-people-fill text-lg"></i>
+                        <span class="text-[10px] uppercase font-black tracking-widest">Gestión Empleados</span>
+                    </NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+            @* SECCIÓN: MAESTROS (LOGÍSTICA) *@
+            <div class="pt-6 pb-2 px-3">
+                <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Logística y Maestros</span>
+            </div>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="maestros/articulos" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-box-seam-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Artículos</span>
+            </NavLink>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="maestros/familias" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-tags-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Familias</span>
+            </NavLink>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="maestros/clientes" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-person-badge-fill text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Clientes</span>
+            </NavLink>
+
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                href="maestros/proveedores" ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                <i class="bi bi-truck text-lg"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Proveedores</span>
+            </NavLink>
+
+            @* SECCIÓN: CONFIGURACIÓN CORPORATIVA *@
+            <AuthorizeView Roles="Admin">
+                <Authorized>
+                    <div class="pt-6 pb-2 px-3">
+                        <span class="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Configuración
+                            Sistema</span>
+                        </div>
+
+                        <NavLink
+                            class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                            href="configuracion/empresas"
+                            ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                            <i class="bi bi-building-fill text-lg"></i>
+                            <span class="text-[10px] uppercase font-black tracking-widest">Maestro Empresas</span>
+                        </NavLink>
+
+                        <NavLink
+                            class="flex items-center gap-3 p-3 rounded-xl transition-all group hover:bg-white/5 hover:text-white no-underline text-inherit"
+                            href="configuracion/seguridad"
+                            ActiveClass="bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50">
+                            <i class="bi bi-shield-lock-fill text-lg"></i>
+                            <span class="text-[10px] uppercase font-black tracking-widest">Seguridad y Roles</span>
+                        </NavLink>
+                </Authorized>
+            </AuthorizeView>
+
+        </nav>
+
+        @* FOOTER CON AJUSTES Y LOGOUT *@
+        <div class="p-4 space-y-2">
+            <NavLink
+                class="flex items-center gap-3 p-3 rounded-2xl bg-slate-800/30 border border-slate-800 text-slate-400 hover:text-white transition-all no-underline group text-inherit"
+                href="configuracion">
+                <i class="bi bi-gear-fill group-hover:rotate-90 transition-transform duration-500"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Ajustes</span>
+            </NavLink>
+
+            <button @onclick="HandleLogout"
+                    class="w-full flex items-center gap-3 p-3 rounded-2xl bg-rose-900/10 border border-rose-900/20 text-rose-500 hover:bg-rose-600 hover:text-white transition-all group">
+                <i class="bi bi-box-arrow-left"></i>
+                <span class="text-[10px] uppercase font-black tracking-widest">Cerrar Sesión</span>
+            </button>
         </div>
     </div>
 
-    @* NAVEGACIÓN *@
-    <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-        
-        @* SECCIÓN: DASHBOARD *@
-        <div class="pb-2 px-3">
-            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">General</span>
-        </div>
+    <style>
+        /* Scrollbar personalizada para el NavMenu */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
 
-        @* Escritorio *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="" Match="NavLinkMatch.All" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">🏠</span>
-            <span class="text-xs uppercase tracking-widest">Escritorio</span>
-        </NavLink>
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
 
-        @* Mi Agenda *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="agenda" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">📅</span>
-            <span class="text-xs uppercase tracking-widest">Mi Agenda</span>
-        </NavLink>
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
 
-        @* Control Llamadas *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="llamadas" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">📞</span>
-            <span class="text-xs uppercase tracking-widest">Control Llamadas</span>
-        </NavLink>
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
 
-        @* SECCIÓN: ADMINISTRACIÓN *@
-        <div class="pt-6 pb-2 border-t border-slate-800 mt-4 px-3">
-            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Administración</span>
-        </div>
-
-        @* Ventas / Facturas *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="nueva-operacion" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">🧾</span>
-            <span class="text-xs uppercase tracking-widest">Ventas / Facturas</span>
-        </NavLink>
-
-        @* Compras / Gastos *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="compras" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">🛒</span>
-            <span class="text-xs uppercase tracking-widest">Compras / Gastos</span>
-        </NavLink>
-
-        @* SECCIÓN: MAESTROS (DATOS BASE) *@
-        <div class="pt-6 pb-2 border-t border-slate-800 mt-4 px-3">
-            <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Maestros</span>
-        </div>
-
-        @* Mi Empresa *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="maestros/empresa" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">🏢</span>
-            <span class="text-xs uppercase tracking-widest">Mi Empresa</span>
-        </NavLink>
-
-        @* Clientes *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="maestros/clientes" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">👥</span>
-            <span class="text-xs uppercase tracking-widest">Clientes</span>
-        </NavLink>
-
-        @* Artículos *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="maestros/articulos" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">📦</span>
-            <span class="text-xs uppercase tracking-widest">Artículos</span>
-        </NavLink>
-
-        @* Proveedores *@
-        <NavLink class="flex items-center gap-3 p-3 rounded-lg transition-all group hover:bg-blue-600 hover:text-white no-underline" 
-                 href="maestros/proveedores" ActiveClass="bg-blue-600 text-white font-bold shadow-lg">
-            <span class="text-sm">🚚</span>
-            <span class="text-xs uppercase tracking-widest">Proveedores</span>
-        </NavLink>
-
-    </nav>
-
-    @* FOOTER / AJUSTES *@
-    <div class="p-4 border-t border-slate-800 bg-[#0f172a]">
-        <NavLink class="flex items-center gap-3 p-2 rounded-lg text-slate-500 hover:text-white transition-all no-underline" 
-                 href="configuracion">
-            <span class="text-sm">⚙️</span>
-            <span class="text-[10px] uppercase font-bold tracking-widest">Configuración</span>
-        </NavLink>
-    </div>
-</div>
+@code {
+    private async Task HandleLogout()
+    {
+        await AuthService.Logout();
+        Navigation.NavigateTo("/login");
+    }
+}

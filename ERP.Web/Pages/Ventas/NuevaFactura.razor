@@ -1,0 +1,234 @@
+@page "/ventas/nueva-factura"
+@using ERP.Domain.Entities
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="max-w-[1400px] mx-auto p-6 animate-in fade-in duration-500">
+    @* --- CABECERA --- *@
+    <div class="flex justify-between items-center mb-8">
+        <div class="flex items-center gap-4">
+            <button @onclick='() => Nav.NavigateTo("/ventas/facturas")' class="h-12 w-12 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-50 transition-all">
+                <i class="bi bi-arrow-left text-slate-600"></i>
+            </button>
+            <div>
+                <h2 class="text-3xl font-black text-slate-800 tracking-tighter uppercase italic">Nueva Factura de Venta</h2>
+                <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Emisión de documento comercial oficial</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-3">
+            <div class="bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-xl">
+                <span class="text-[10px] font-black opacity-50 uppercase block">Total Documento</span>
+                <span class="text-2xl font-black italic">@documento.Total.ToString("N2") €</span>
+            </div>
+        </div>
+    </div>
+
+    <EditForm Model="documento" OnValidSubmit="GuardarFactura">
+        <DataAnnotationsValidator />
+
+        <div class="grid grid-cols-12 gap-6">
+            @* --- COLUMNA IZQUIERDA: DATOS CABECERA --- *@
+            <div class="col-span-12 lg:col-span-4 space-y-6">
+                <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Seleccionar Cliente</label>
+                        <select @onchange="OnClienteChanged" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <option value="">-- Buscar Cliente --</option>
+                            @if (clientes != null)
+                            {
+                                @foreach (var c in clientes)
+                                {
+                                    <option value="@c.Id">@c.RazonSocial (@c.CIF)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Fecha</label>
+                            <InputDate @bind-Value="documento.Fecha" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold" />
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Nº Factura</label>
+                            <InputText @bind-Value="documento.NumeroDocumento" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold" placeholder="AUTO-GEN" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Método de Pago</label>
+                        <InputText @bind-Value="documento.MetodoPago" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase" />
+                    </div>
+                </div>
+            </div>
+
+            @* --- COLUMNA DERECHA: LÍNEAS DE ARTÍCULOS --- *@
+            <div class="col-span-12 lg:col-span-8 space-y-6">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <span class="text-xs font-black text-slate-800 uppercase italic">Líneas del Documento</span>
+                        <button type="button" @onclick="AgregarLinea" class="text-blue-600 font-black text-[10px] uppercase hover:bg-blue-50 px-4 py-2 rounded-xl transition-all">
+                            ＋ Añadir Concepto
+                        </button>
+                    </div>
+
+                    <table class="w-full">
+                        <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
+                            <tr>
+                                <th class="p-4 text-left">Artículo</th>
+                                <th class="p-4 w-24 text-center">Cant.</th>
+                                <th class="p-4 w-32 text-right">Precio</th>
+                                <th class="p-4 w-24 text-center">IVA %</th>
+                                <th class="p-4 w-32 text-right">Subtotal</th>
+                                <th class="p-4 w-16"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var linea in documento.Lineas)
+                            {
+                                <tr class="border-b border-slate-50">
+                                    <td class="p-4">
+                                        <select @onchange="(e) => OnArticuloSeleccionado(linea, e)" class="w-full p-2 bg-slate-50 border-none rounded-lg text-xs font-bold uppercase outline-none">
+                                            <option value="">-- Seleccionar --</option>
+                                            @foreach (var art in articulosList)
+                                            {
+                                                <option value="@art.Id">@art.Descripcion</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="p-4">
+                                        <input type="number" step="0.01" 
+                                               value="@linea.Cantidad" 
+                                               @onchange="@((e) => UpdateCantidad(linea, e))"
+                                               class="w-full p-2 bg-slate-50 border-none rounded-lg text-center font-bold text-xs" />
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <input type="number" step="0.01" 
+                                               value="@linea.PrecioUnitario" 
+                                               @onchange="@((e) => UpdatePrecio(linea, e))"
+                                               class="w-full p-2 bg-slate-50 border-none rounded-lg text-right font-bold text-xs" />
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <span class="text-[10px] font-black text-slate-400">@linea.PorcentajeIva%</span>
+                                    </td>
+                                    <td class="p-4 text-right font-black text-xs text-slate-700">
+                                        @linea.Subtotal.ToString("N2")€
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <button type="button" @onclick="() => EliminarLinea(linea)" class="text-red-300 hover:text-red-500 transition-colors">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <div class="p-8 bg-slate-50 border-t border-slate-100 flex flex-col items-end gap-2">
+                        <div class="flex justify-between w-64 text-xs font-bold text-slate-500 uppercase">
+                            <span>Base Imponible</span>
+                            <span>@documento.BaseImponible.ToString("N2") €</span>
+                        </div>
+                        <div class="flex justify-between w-64 text-xs font-bold text-slate-500 uppercase">
+                            <span>IVA Total</span>
+                            <span>@documento.TotalIva.ToString("N2") €</span>
+                        </div>
+                        <div class="flex justify-between w-64 text-lg font-black text-slate-900 uppercase italic pt-2 border-t mt-2">
+                            <span>Total</span>
+                            <span>@documento.Total.ToString("N2") €</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl">
+                        Finalizar y Registrar Factura
+                    </button>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private DocumentoComercial documento = new() { EsCompra = false, Tipo = TipoDocumento.Factura };
+    private List<Cliente>? clientes;
+    private List<Articulo> articulosList = new();
+    private Cliente? clienteSeleccionado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try {
+            clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/clientes");
+            articulosList = await Http.GetFromJsonAsync<List<Articulo>>("api/articulos") ?? new();
+            AgregarLinea();
+        } catch (Exception ex) {
+            Console.WriteLine(ex.Message);
+        }
+    }
+
+    private void OnClienteChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            clienteSeleccionado = clientes?.FirstOrDefault(c => c.Id == id);
+            documento.ClienteId = id;
+        }
+    }
+
+    private void AgregarLinea()
+    {
+        documento.Lineas.Add(new DocumentoLinea { Cantidad = 1, PorcentajeIva = 21 });
+        StateHasChanged();
+    }
+
+    private void EliminarLinea(DocumentoLinea linea)
+    {
+        documento.Lineas.Remove(linea);
+        CalcularTotales();
+    }
+
+    private void OnArticuloSeleccionado(DocumentoLinea linea, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            var art = articulosList.FirstOrDefault(a => a.Id == id);
+            if (art != null)
+            {
+                linea.ArticuloId = art.Id;
+                linea.DescripcionArticulo = art.Descripcion; // CAMBIADO: Antes era .Nombre
+                linea.PrecioUnitario = art.PrecioVenta;
+                linea.PorcentajeIva = (double)art.PorcentajeIva; // CAMBIADO: Casteo de decimal a double para DocumentoLinea
+                CalcularTotales();
+            }
+        }
+    }
+
+    // Métodos auxiliares para evitar el error CS1662 al usar lambdas complejas en el UI
+    private void UpdateCantidad(DocumentoLinea linea, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out decimal val)) linea.Cantidad = val;
+        CalcularTotales();
+    }
+
+    private void UpdatePrecio(DocumentoLinea linea, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out decimal val)) linea.PrecioUnitario = val;
+        CalcularTotales();
+    }
+
+    private void CalcularTotales()
+    {
+        documento.BaseImponible = documento.Lineas.Sum(l => l.Cantidad * l.PrecioUnitario);
+        documento.TotalIva = documento.Lineas.Sum(l => (l.Cantidad * l.PrecioUnitario) * (decimal)(l.PorcentajeIva / 100));
+        documento.Total = documento.BaseImponible + documento.TotalIva;
+    }
+
+    private async Task GuardarFactura()
+    {
+        var response = await Http.PostAsJsonAsync("api/facturacion/guardar", documento);
+        if (response.IsSuccessStatusCode) Nav.NavigateTo("/ventas/facturas");
+    }
+}

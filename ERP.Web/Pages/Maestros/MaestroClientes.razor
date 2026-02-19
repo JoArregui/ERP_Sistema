@@ -4,10 +4,11 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NotificationService Notify
+@implements IDisposable
 
 <div class="max-w-[1400px] mx-auto p-6 animate-in fade-in duration-700">
     
-    @* --- SISTEMA DE NOTIFICACIONES (TOASTS) --- *@
+    @* --- SISTEMA DE NOTIFICACIONES LOCAL (TOASTS) --- *@
     <div class="fixed top-5 right-5 z-[100] flex flex-col gap-3">
         @foreach (var note in activeNotifications)
         {
@@ -268,14 +269,34 @@
     private Cliente clienteActual = new();
     private List<NotificationItem> activeNotifications = new();
 
-    protected override async Task OnInitializedAsync() => await CargarClientes();
+    protected override async Task OnInitializedAsync()
+    {
+        // Suscribirse al servicio global de notificaciones
+        Notify.OnShow += HandleGlobalNotification;
+        await CargarClientes();
+    }
+
+    private void HandleGlobalNotification(string msg, NotificationType type)
+    {
+        // Esta lógica permite que si otro componente llama a Notify.ShowNotification,
+        // este componente lo muestre en sus Toasts locales.
+        var note = new NotificationItem { Message = msg, Type = type };
+        activeNotifications.Add(note);
+        StateHasChanged();
+        Task.Delay(4000).ContinueWith(_ => { 
+            activeNotifications.Remove(note); 
+            InvokeAsync(StateHasChanged); 
+        });
+    }
 
     private async Task CargarClientes()
     {
         try {
             clientes = await Http.GetFromJsonAsync<List<Cliente>>("api/clientes");
             Filtrar();
-        } catch { AddNotification("Error de conexión con el servidor", NotificationType.Error); }
+        } catch { 
+            AddNotification("Error de conexión con el servidor", NotificationType.Error); 
+        }
     }
 
     private void OnFiltroEstadoChanged(ChangeEventArgs e)
@@ -334,20 +355,19 @@
 
     private async Task Eliminar(int id)
     {
-        if (await JS.InvokeAsync<bool>("confirm", "Confirmar eliminación definitiva del registro?")) {
+        if (await JS.InvokeAsync<bool>("confirm", "Confirmar baja del registro?")) {
             var response = await Http.DeleteAsync($"api/clientes/{id}");
             if (response.IsSuccessStatusCode) {
-                AddNotification("Registro eliminado", NotificationType.Warning);
+                AddNotification("Cliente dado de baja (Desactivado)", NotificationType.Warning);
                 await CargarClientes();
             }
         }
     }
 
-    private void AddNotification(string msg, NotificationType type) {
-        var note = new NotificationItem { Message = msg, Type = type };
-        activeNotifications.Add(note);
-        StateHasChanged();
-        Task.Delay(4000).ContinueWith(_ => { activeNotifications.Remove(note); InvokeAsync(StateHasChanged); });
+    private void AddNotification(string msg, NotificationType type) 
+    {
+        // Llamamos al servicio para que otros componentes se enteren
+        Notify.ShowNotification(msg, type);
     }
 
     private string GetNoteStyle(NotificationType type) => type switch {
@@ -355,6 +375,12 @@
         NotificationType.Error => "border-red-500 text-red-800",
         _ => "border-amber-500 text-amber-800"
     };
+
+    public void Dispose()
+    {
+        // Limpieza del evento para evitar fugas de memoria
+        Notify.OnShow -= HandleGlobalNotification;
+    }
 
     private class NotificationItem { public string Message { get; set; } = string.Empty; public NotificationType Type { get; set; } }
 }

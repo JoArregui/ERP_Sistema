@@ -74,7 +74,6 @@ namespace ERP.API.Services
             }
             catch
             {
-                // Eliminada la variable 'ex' para corregir CS0168
                 await transaction.RollbackAsync();
                 throw; 
             }

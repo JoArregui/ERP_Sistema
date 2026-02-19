@@ -1,0 +1,140 @@
+@page "/rrhh/control-horario"
+@using ERP.Web.Services
+@inject NotificationService Notification
+@implements IDisposable
+
+<div class="space-y-6">
+    @* CABECERA *@
+    <div>
+        <h1 class="text-3xl font-black text-white tracking-tight">CONTROL HORARIO</h1>
+        <p class="text-slate-500 font-medium">Registro de jornada laboral y seguimiento de horas.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        @* PANEL DE ACCIÓN PRINCIPAL *@
+        <div class="lg:col-span-1 bg-[#0f172a] border border-slate-800 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-2xl">
+            <div class="mb-6">
+                <div class="text-5xl font-black text-white tracking-widest mb-2">
+                    @CurrentTime.ToString("HH:mm:ss")
+                </div>
+                <div class="text-slate-500 uppercase text-xs font-bold tracking-widest">
+                    @CurrentTime.ToString("dddd, dd MMMM yyyy")
+                </div>
+            </div>
+
+            @if (!EstaFichado)
+            {
+                <button @onclick="RegistrarEntrada" 
+                        class="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-900/20 group">
+                    <i class="bi bi-play-fill mr-2 group-hover:scale-125 transition-transform"></i>
+                    INICIAR JORNADA
+                </button>
+            }
+            else
+            {
+                <button @onclick="RegistrarSalida" 
+                        class="w-full py-6 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-lg transition-all shadow-lg shadow-rose-900/20 group">
+                    <i class="bi bi-stop-fill mr-2 group-hover:scale-125 transition-transform"></i>
+                    FINALIZAR JORNADA
+                </button>
+                
+                <div class="mt-6 flex items-center gap-2 text-emerald-400 bg-emerald-400/10 px-4 py-2 rounded-full">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-xs font-black uppercase tracking-widest">Sesión Activa</span>
+                </div>
+            }
+        </div>
+
+        @* RESUMEN Y ESTADÍSTICAS *@
+        <div class="lg:col-span-2 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Horas Hoy</p>
+                    <p class="text-2xl font-black text-white">07:45 <span class="text-sm text-slate-500">h</span></p>
+                </div>
+                <div class="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Semanal</p>
+                    <p class="text-2xl font-black text-blue-500">38:20 <span class="text-sm text-slate-500">h</span></p>
+                </div>
+            </div>
+
+            @* ÚLTIMOS REGISTROS *@
+            <div class="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden">
+                <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest">Historial Reciente</h3>
+                    <button class="text-xs text-blue-500 font-bold hover:underline">Ver todo</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-slate-900/30 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                <th class="p-4">Fecha</th>
+                                <th class="p-4">Entrada</th>
+                                <th class="p-4">Salida</th>
+                                <th class="p-4 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm divide-y divide-slate-800/50">
+                            @foreach (var registro in HistorialDummy)
+                            {
+                                <tr class="text-slate-300 hover:bg-white/[0.02]">
+                                    <td class="p-4 font-medium">@registro.Fecha</td>
+                                    <td class="p-4">@registro.Entrada</td>
+                                    <td class="p-4">@registro.Salida</td>
+                                    <td class="p-4 text-right font-bold text-white">@registro.Total</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime CurrentTime = DateTime.Now;
+    private bool EstaFichado = false;
+    private System.Threading.Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        // Actualizar el reloj cada segundo
+        timer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                CurrentTime = DateTime.Now;
+                StateHasChanged();
+            });
+        }, null, 0, 1000);
+    }
+
+    private void RegistrarEntrada()
+    {
+        EstaFichado = true;
+        Notification.Success("Entrada registrada a las " + DateTime.Now.ToString("HH:mm"));
+    }
+
+    private void RegistrarSalida()
+    {
+        EstaFichado = false;
+        Notification.Info("Salida registrada a las " + DateTime.Now.ToString("HH:mm"));
+    }
+
+    public void Dispose() => timer?.Dispose();
+
+    // Datos dummy para la tabla
+    private List<FichajeRow> HistorialDummy = new()
+    {
+        new ("18 Feb 2026", "08:00", "17:00", "09:00h"),
+        new ("17 Feb 2026", "08:15", "17:05", "08:50h"),
+        new ("16 Feb 2026", "07:55", "17:00", "09:05h")
+    };
+
+    public record FichajeRow(string Fecha, string Entrada, string Salida, string Total);
+}

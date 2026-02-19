@@ -1,98 +1,135 @@
 @page "/ventas/cierre"
 @using ERP.Domain.Entities
-@using ERP.Web.Services
 @inject HttpClient Http
-@inject NotificationService Notification
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="max-w-4xl mx-auto p-8">
+<div class="max-w-4xl mx-auto p-8 animate-fade-in">
     <div class="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100">
         
-        @* CABECERA *@
+        @* HEADER VISUAL *@
         <div class="p-10 bg-slate-900 text-white flex justify-between items-center">
             <div>
-                <h2 class="text-3xl font-black italic tracking-tighter">CIERRE DE JORNADA</h2>
-                <p class="text-blue-400 font-mono text-xs uppercase mt-1">Terminal: TPV-01 | @DateTime.Now.ToLongDateString()</p>
+                <h2 class="text-4xl font-black italic tracking-tighter leading-none">CIERRE Z</h2>
+                <p class="text-blue-400 font-bold text-[10px] uppercase mt-2 tracking-widest">
+                    <span class="opacity-50">Terminal:</span> TPV-01 | @DateTime.Now.ToString("dd MMMM yyyy")
+                </p>
             </div>
-            <div class="text-right">
-                <div class="text-[10px] font-black text-white/30 uppercase tracking-widest">Estado</div>
-                <div class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold border border-emerald-500/30">TURNO ABIERTO</div>
-            </div>
-        </div>
-
-        <div class="p-12 grid grid-cols-12 gap-12">
-            
-            @* COLUMNA IZQUIERDA: CONTEO FÍSICO *@
-            <div class="col-span-12 lg:col-span-6 space-y-8">
-                <div>
-                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest block mb-4">Efectivo Real en Caja</label>
-                    <div class="relative">
-                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-slate-300">€</span>
-                        <input @bind="Cierre.ImporteRealEnCaja" type="number" 
-                               class="w-full pl-14 pr-8 py-8 bg-slate-50 border-2 border-slate-100 rounded-[2rem] text-5xl font-black text-slate-800 focus:border-blue-500 focus:outline-none transition-all" />
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-2">Notas de Cierre</label>
-                    <textarea @bind="Cierre.Observaciones" class="w-full bg-transparent border-none focus:outline-none text-slate-600 text-sm" rows="3" placeholder="Ej: Retirada de efectivo para cambio..."></textarea>
-                </div>
-            </div>
-
-            @* COLUMNA DERECHA: RESUMEN ERP *@
-            <div class="col-span-12 lg:col-span-6 bg-slate-50 rounded-[2.5rem] p-10 flex flex-col justify-between border border-slate-100">
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center border-b border-slate-200 pb-4">
-                        <span class="text-slate-500 font-medium">Ventas Tarjeta</span>
-                        <span class="font-black text-slate-800 text-xl">@Cierre.TotalVentasTarjeta.ToString("N2")€</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-slate-200 pb-4">
-                        <span class="text-slate-500 font-medium">Ventas Efectivo (Esperado)</span>
-                        <span class="font-black text-slate-800 text-xl">@Cierre.TotalVentasEfectivo.ToString("N2")€</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-500 font-medium">IVA Total Acumulado</span>
-                        <span class="font-bold text-blue-600">@Cierre.TotalIva.ToString("N2")€</span>
-                    </div>
-                </div>
-
-                @* INDICADOR DE DESCUADRE *@
-                <div class="mt-8 p-6 @(Math.Abs(Cierre.Descuadre) < 0.01m ? "bg-emerald-500" : "bg-rose-500") rounded-3xl text-white transition-colors duration-500 shadow-xl">
-                    <div class="text-[10px] font-black uppercase opacity-60">Diferencia de Caja</div>
-                    <div class="text-4xl font-black">@Cierre.Descuadre.ToString("N2")€</div>
-                    <div class="text-[10px] mt-1 font-bold italic">@(Cierre.Descuadre == 0 ? "¡Caja cuadrada!" : "Atención: Existe un descuadre")</div>
-                </div>
-            </div>
-
-            @* ACCIÓN FINAL *@
-            <div class="col-span-12">
-                <button @onclick="ConfirmarCierre" 
-                        class="w-full py-8 bg-slate-900 hover:bg-black text-white rounded-[2rem] font-black text-xl uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95">
-                    Realizar Cierre de Caja (Z)
-                </button>
+            <div class="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-2xl">
+                <span class="text-emerald-400 text-[10px] font-black uppercase">Turno en curso</span>
             </div>
         </div>
+
+        @if (Cierre == null)
+        {
+            <div class="p-20 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto"></div>
+            </div>
+        }
+        else
+        {
+            <div class="p-12 grid grid-cols-12 gap-12">
+                
+                @* CONTEO FÍSICO *@
+                <div class="col-span-12 lg:col-span-6 space-y-8">
+                    <div class="group">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">Efectivo Real en Cajón</label>
+                        <div class="relative">
+                            <span class="absolute left-8 top-1/2 -translate-y-1/2 text-4xl font-black text-slate-200 group-focus-within:text-blue-500 transition-colors">€</span>
+                            <input @bind="Cierre.ImporteRealEnCaja" @bind:event="oninput" type="number" 
+                                   class="w-full pl-16 pr-8 py-10 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] text-6xl font-black text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none transition-all shadow-inner" />
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 shadow-sm">
+                        <label class="text-[10px] font-black text-slate-400 uppercase block mb-3 italic">Observaciones del turno</label>
+                        <textarea @bind="Cierre.Observaciones" 
+                                  class="w-full bg-transparent border-none focus:outline-none text-slate-600 font-medium text-sm" 
+                                  rows="3" placeholder="Incidencias, retiradas de efectivo..."></textarea>
+                    </div>
+                </div>
+
+                @* RESUMEN DEL SISTEMA *@
+                <div class="col-span-12 lg:col-span-6 bg-slate-50 rounded-[2.5rem] p-10 flex flex-col justify-between border border-slate-100 shadow-inner">
+                    <div class="space-y-6">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+                            <span class="text-slate-500 font-bold text-xs uppercase">Tarjeta (Datáfono)</span>
+                            <span class="font-black text-slate-900 text-2xl tracking-tighter">@Cierre.TotalVentasTarjeta.ToString("N2")€</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+                            <span class="text-slate-500 font-bold text-xs uppercase">Efectivo (Esperado)</span>
+                            <span class="font-black text-slate-900 text-2xl tracking-tighter">@Cierre.TotalVentasEfectivo.ToString("N2")€</span>
+                        </div>
+                    </div>
+
+                    @* DIFERENCIA *@
+                    <div class="mt-8 p-8 @(Math.Abs(Cierre.Descuadre) < 0.01m ? "bg-emerald-500" : "bg-rose-500") rounded-[2rem] text-white transition-all duration-700 shadow-2xl">
+                        <div class="text-[10px] font-black uppercase opacity-60 tracking-widest">Descuadre de Caja</div>
+                        <div class="text-5xl font-black tracking-tighter">@Cierre.Descuadre.ToString("N2")€</div>
+                        <p class="text-[10px] mt-2 font-bold uppercase italic opacity-90">
+                            @(Cierre.Descuadre == 0 ? "CUADRE PERFECTO" : "REVISAR TICKETS")
+                        </p>
+                    </div>
+                </div>
+
+                @* BOTÓN DE EJECUCIÓN *@
+                <div class="col-span-12 pt-4">
+                    <button @onclick="ConfirmarCierre" disabled="@isProcessing"
+                            class="w-full py-10 bg-slate-900 hover:bg-blue-600 disabled:bg-slate-300 text-white rounded-[2.5rem] font-black text-xl uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 flex justify-center items-center gap-4">
+                        @if(isProcessing) {
+                            <div class="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full"></div>
+                        } else {
+                            <span>FINALIZAR JORNADA</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
 @code {
-    private CierreCaja Cierre = new();
+    private CierreCaja? Cierre;
+    private bool isProcessing = false;
 
     protected override async Task OnInitializedAsync()
     {
-        try {
-            Cierre = await Http.GetFromJsonAsync<CierreCaja>("api/cierrecaja/totales-pendientes") ?? new();
-        } catch (Exception ex) {
-            Console.WriteLine($"Error al cargar totales: {ex.Message}");
-        }
+        Cierre = await Http.GetFromJsonAsync<CierreCaja>("api/cierrecaja/totales-pendientes");
     }
 
     private async Task ConfirmarCierre()
     {
-        var response = await Http.PostAsJsonAsync("api/cierrecaja/ejecutar", Cierre);
-        if (response.IsSuccessStatusCode)
+        if (isProcessing || Cierre == null) return;
+        isProcessing = true;
+
+        try 
         {
-            Notification.ShowNotification("Cierre completado con éxito", NotificationType.Success);
-            // Aquí podrías imprimir un ticket de resumen de cierre
+            var response = await Http.PostAsJsonAsync("api/cierrecaja/ejecutar", Cierre);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // Extraemos el ID del cierre creado para la descarga del PDF
+                var resultado = await response.Content.ReadFromJsonAsync<CierreResult>();
+                
+                // Disparar descarga del PDF (vía JS para abrir nueva pestaña o descargar)
+                if (resultado != null)
+                {
+                    await JS.InvokeVoidAsync("open", $"api/cierrecaja/{resultado.Id}/pdf", "_blank");
+                }
+
+                Nav.NavigateTo("/ventas/facturas");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
         }
     }
+
+    // Clase interna para mapear la respuesta del API
+    private class CierreResult { public int Id { get; set; } }
 }

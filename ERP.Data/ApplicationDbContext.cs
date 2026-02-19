@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using ERP.Domain.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using System;
+using System.Linq;
 
 namespace ERP.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -22,15 +25,14 @@ namespace ERP.Data
         public DbSet<Vencimiento> Vencimientos { get; set; }
         public DbSet<Nomina> Nominas { get; set; }
         public DbSet<CierreCaja> CierresCaja { get; set; }
-        
-        // Registro del historial de movimientos (Kardex)
         public DbSet<MovimientoStock> MovimientosStock { get; set; }
+        public DbSet<ConfiguracionGeneral> ConfiguracionesGenerales { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- 1. FILTROS GLOBALES ---
+            // --- 1. FILTROS GLOBALES (Tu lógica de negocio) ---
             modelBuilder.Entity<Cliente>().HasQueryFilter(c => c.IsActivo);
             modelBuilder.Entity<Articulo>().HasQueryFilter(a => !a.IsDescatalogado);
             modelBuilder.Entity<Empleado>().HasQueryFilter(e => e.FechaBaja == null || e.FechaBaja > DateTime.Now);
@@ -50,9 +52,51 @@ namespace ERP.Data
                 }
             }
 
-            // --- 3. RELACIONES Y CASCADA ---
+            // --- 3. RELACIONES (Solución a Warnings de EF Core) ---
+            
+            // Relación Articulo -> DocumentoLinea
+            // Marcamos IsRequired(false) para que EF no se queje si el filtro oculta el artículo
+            modelBuilder.Entity<DocumentoLinea>()
+                .HasOne(l => l.Articulo)
+                .WithMany()
+                .HasForeignKey(l => l.ArticuloId)
+                .IsRequired(false) 
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación Empleado -> ControlHorario
+            modelBuilder.Entity<ControlHorario>()
+                .HasOne(c => c.Empleado)
+                .WithMany(e => e.ControlesHorarios)
+                .HasForeignKey(c => c.EmpleadoId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación Empleado -> Nomina
+            modelBuilder.Entity<Nomina>()
+                .HasOne(n => n.Empleado)
+                .WithMany(e => e.Nominas)
+                .HasForeignKey(n => n.EmpleadoId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación Articulo -> MovimientoStock
+            modelBuilder.Entity<MovimientoStock>()
+                .HasOne(m => m.Articulo)
+                .WithMany()
+                .HasForeignKey(m => m.ArticuloId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // --- RESTO DE CONFIGURACIONES ESTÁNDAR ---
+
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Empresa)
+                .WithMany()
+                .HasForeignKey(u => u.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Articulo>()
-                .HasOne(a => a.FamiliaArticulo)
+                .HasOne(a => a.Familia)
                 .WithMany(f => f.Articulos)
                 .HasForeignKey(a => a.FamiliaId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -62,12 +106,6 @@ namespace ERP.Data
                 .WithMany()
                 .HasForeignKey(v => v.EmpresaId)
                 .OnDelete(DeleteBehavior.NoAction);
-
-            modelBuilder.Entity<DocumentoLinea>()
-                .HasOne(l => l.Articulo)
-                .WithMany()
-                .HasForeignKey(l => l.ArticuloId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<DocumentoComercial>()
                 .HasOne(d => d.Cliente)
@@ -86,6 +124,12 @@ namespace ERP.Data
                 .WithMany(d => d.Lineas)
                 .HasForeignKey(l => l.DocumentoId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CierreCaja>()
+                .HasOne(c => c.Empresa)
+                .WithMany()
+                .HasForeignKey(c => c.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

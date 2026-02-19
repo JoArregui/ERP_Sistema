@@ -28,9 +28,14 @@ namespace ERP.Domain.Entities
         [Required(ErrorMessage = "El Nº de Seguridad Social es obligatorio")]
         public string NumeroSeguridadSocial { get; set; } = string.Empty;
 
+        // --- ACCESO KIOSKO ---
+        [Required(ErrorMessage = "El PIN de acceso es obligatorio para el fichaje")]
+        [StringLength(10)]
+        public string PinAcceso { get; set; } = string.Empty;
+
         // --- DATOS CONTRACTUALES ---
-        public string? Cargo { get; set; } // Ej: Contable, Comercial, Técnico
-        public string? Departamento { get; set; } // Ej: Administración, Ventas
+        public string? Cargo { get; set; } 
+        public string? Departamento { get; set; } 
         
         [Required]
         public DateTime FechaAlta { get; set; } = DateTime.Now;
@@ -44,14 +49,20 @@ namespace ERP.Domain.Entities
 
         // --- PAGO Y BANCO ---
         [StringLength(34)]
-        public string? IBAN { get; set; } // Para transferencias de nómina
+        public string? IBAN { get; set; } 
 
         // --- LÓGICA DE ESTADO ---
+        [NotMapped] 
         public bool IsActivo => !FechaBaja.HasValue || FechaBaja > DateTime.Now;
 
         // --- RELACIONES ---
         public int EmpresaId { get; set; }
+        
         [ForeignKey("EmpresaId")]
         public virtual Empresa? Empresa { get; set; }
+
+        // Colecciones para navegación
+        public virtual ICollection<Nomina> Nominas { get; set; } = new List<Nomina>();
+        public virtual ICollection<ControlHorario> ControlesHorarios { get; set; } = new List<ControlHorario>();
     }
 }

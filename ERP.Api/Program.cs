@@ -8,6 +8,10 @@ using ERP.Data;
 using ERP.Domain.Entities;
 using ERP.Services;
 using ERP.API.Services;
+using ERP.Application.Services;
+using ERP.Api.Hubs;
+using ERP.Api.Services;
+using ERP.Domain.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,9 +21,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // --- 2. CONFIGURACIÓN DE IDENTITY ---
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
+    options.Password.RequireDigit = false;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
 
 // --- 3. CONFIGURACIÓN DE SEGURIDAD JWT ---
 var jwtSecret = builder.Configuration["JWT:Secret"] ?? "Clave_Super_Secreta_De_Prueba_2026_ERP";
@@ -32,6 +42,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -42,49 +54,52 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// --- 4. POLÍTICA DE CORS (CORREGIDA) ---
+// --- 4. POLÍTICAS DE AUTORIZACIÓN DINÁMICAS (BASADAS EN CLAIMS) ---
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var permission in AppPermissions.All)
+    {
+        options.AddPolicy(permission, policy => 
+            policy.RequireClaim("Permission", permission));
+    }
+});
+
+// --- 5. POLÍTICA DE CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        policy.WithOrigins("http://localhost:5053") // Puerto de tu ERP.Web
+        policy.WithOrigins("http://localhost:5053", "https://localhost:5053")
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials(); // <--- ELIMINADO EL "Any", ahora es correcto
+              .AllowCredentials();
     });
 });
 
-// --- 5. REGISTRO DE SERVICIOS DE NEGOCIO ---
+// --- 6. REGISTRO DE SERVICIOS DE NEGOCIO ---
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IEmailService, EmailService>(); 
 builder.Services.AddScoped<NominaService>();
 builder.Services.AddScoped<PdfService>();
-builder.Services.AddScoped<CicloFacturacionService>();
-builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<StockService>(); 
 builder.Services.AddScoped<ComprasService>();
+builder.Services.AddScoped<CicloFacturacionService>();
+builder.Services.AddScoped<FacturacionService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// --- 6. SWAGGER PROFESIONAL ---
+// --- 7. SWAGGER ---
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "ERP Profesional API", 
-        Version = "v1",
-        Description = "Backend Industrial para Gestión de Empresas, Facturación y Recursos Humanos."
-    });
-
-    var securityScheme = new OpenApiSecurityScheme
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ERP Profesional API", Version = "v1" });
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Description = "Ingresa el token JWT: Bearer {tu_token}",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    };
-
-    c.AddSecurityDefinition("Bearer", securityScheme);
+        Scheme = "bearer"
+    });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -99,7 +114,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// --- 7. PROCESO DE SEMILLADO (SEEDING) ---
+// --- 8. SEEDING AUTOMÁTICO ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -108,18 +123,18 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDbContext>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
+        
         await context.Database.MigrateAsync();
         await SeedService.SeedAsync(context, userManager, roleManager);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ocurrió un error crítico durante la migración o el semillado.");
+        logger.LogError(ex, "Error crítico en la fase de migración o seeding.");
     }
 }
 
-// --- 8. CONFIGURACIÓN DEL PIPELINE (MIDDLEWARE) ---
+// --- 9. MIDDLEWARE ---
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -127,13 +142,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// El CORS debe ir antes de Authentication y Authorization
+app.UseStaticFiles();
 app.UseCors("AllowBlazorClient");
-
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<DashboardHub>("/dashboardHub");
+app.MapFallbackToFile("index.html"); 
 
 app.Run();

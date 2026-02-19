@@ -8,7 +8,6 @@ namespace ERP.Domain.Entities
         [Key]
         public int Id { get; set; }
 
-        // Obligatorio para el filtrado por empresa
         [Required]
         public int EmpresaId { get; set; }
 
@@ -42,12 +41,15 @@ namespace ERP.Domain.Entities
 
         public bool IsDescatalogado { get; set; } = false;
 
-        // --- RELACIÓN CON FAMILIA ---
+        // --- NUEVA PROPIEDAD PARA IMAGEN ---
+        public string? ImagenUrl { get; set; }
+
+        // --- RELACION CON FAMILIA ---
         [Required(ErrorMessage = "Debe asignar una familia al artículo")]
         public int FamiliaId { get; set; }
 
-        // Importante: El nombre en el ForeignKey debe coincidir con la propiedad de navegación
-        [ForeignKey("FamiliaId")]
-        public virtual FamiliaArticulo? FamiliaArticulo { get; set; }
+        [ForeignKey(nameof(FamiliaId))] 
+        // CORRECCIÓN: Se cambia 'FamiliaArticulo' por 'Familia' para coincidir con la clase existente
+        public virtual Familia? Familia { get; set; }
     }
 }

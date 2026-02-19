@@ -71,17 +71,16 @@ namespace ERP.Services
             _context.Nominas.Add(nuevaNomina);
 
             // 5. Integración con Tesorería: Generar obligación de pago
-            // El neto es lo que realmente sale de la caja de la empresa
             decimal importeNeto = (nuevaNomina.SalarioBase + nuevaNomina.Complementos) - nuevaNomina.Deducciones;
 
             var obligacionPago = new Vencimiento
             {
-                DocumentoId = 0, // 0 indica que es un gasto interno, no una factura comercial
+                DocumentoId = 0, // 0 indica que es un gasto interno (Nómina)
                 FechaVencimiento = new DateTime(anio, mes, DateTime.DaysInMonth(anio, mes)),
                 Importe = importeNeto,
                 Estado = "Pendiente",
                 MetodoPago = "Transferencia",
-                EmpresaId = empleado.EmpresaId, // Multi-tenant: pertenece a la empresa del empleado
+                EmpresaId = empleado.EmpresaId, 
                 FechaPago = null
             };
 
@@ -91,6 +90,47 @@ namespace ERP.Services
             await _context.SaveChangesAsync();
 
             return nuevaNomina;
+        }
+
+        public async Task<bool> ProcesarPagoNominaAsync(int nominaId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var nomina = await _context.Nominas
+                    .Include(n => n.Empleado)
+                    .FirstOrDefaultAsync(n => n.Id == nominaId);
+
+                // Corrección CS8602: Validar que nomina y nomina.Empleado no sean nulos
+                if (nomina == null || nomina.Empleado == null || nomina.EstaPagada) return false;
+
+                // Marcar como pagada en RRHH
+                nomina.EstaPagada = true;
+
+                // Buscar y actualizar el vencimiento asociado en Tesorería
+                var vencimiento = await _context.Vencimientos
+                    .FirstOrDefaultAsync(v => v.DocumentoId == 0 
+                                         && v.EmpresaId == nomina.Empleado.EmpresaId 
+                                         && v.FechaVencimiento.Month == nomina.Mes 
+                                         && v.FechaVencimiento.Year == nomina.Anio
+                                         && v.Importe == (nomina.SalarioBase + nomina.Complementos - nomina.Deducciones)
+                                         && v.Estado == "Pendiente");
+
+                if (vencimiento != null)
+                {
+                    vencimiento.Estado = "Pagado";
+                    vencimiento.FechaPago = DateTime.Now;
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

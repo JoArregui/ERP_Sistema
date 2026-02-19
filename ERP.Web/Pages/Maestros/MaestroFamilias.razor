@@ -1,6 +1,5 @@
 @page "/maestros/familias"
 @using ERP.Domain.Entities
-@using ERP.Web.Services
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -34,7 +33,22 @@
                     <tbody class="divide-y divide-slate-50">
                         @if (familias == null)
                         {
-                            <tr><td colspan="4" class="p-20 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando categorías...</td></tr>
+                            <tr>
+                                <td colspan="4" class="p-20 text-center">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <div class="w-8 h-8 border-4 border-slate-100 border-t-amber-500 rounded-full animate-spin"></div>
+                                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando categorías...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else if (!familias.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="p-20 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
+                                    No se han encontrado familias registradas
+                                </td>
+                            </tr>
                         }
                         else
                         {
@@ -44,9 +58,12 @@
                                     <td class="p-5">
                                         <div class="flex items-center gap-4">
                                             <div class="h-10 w-10 bg-slate-900 text-amber-400 rounded-xl flex items-center justify-center font-black text-sm shadow-lg">
-                                                @fam.Nombre.Substring(0, 1).ToUpper()
+                                                @(string.IsNullOrEmpty(fam.Nombre) ? "?" : fam.Nombre.Substring(0, 1).ToUpper())
                                             </div>
-                                            <div class="text-sm font-black text-slate-800 uppercase tracking-tight">@fam.Nombre</div>
+                                            <div>
+                                                <div class="text-sm font-black text-slate-800 uppercase tracking-tight">@fam.Nombre</div>
+                                                <div class="text-[9px] font-mono text-slate-400 uppercase">@fam.CodigoInterno</div>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="p-5">
@@ -64,8 +81,8 @@
                                     </td>
                                     <td class="p-5 text-right">
                                         <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button @onclick="() => SeleccionarFamilia(fam)" class="p-2 hover:bg-slate-900 hover:text-white rounded-lg transition-all">✏️</button>
-                                            <button @onclick="() => Eliminar(fam.Id)" class="p-2 hover:bg-red-600 hover:text-white rounded-lg transition-all">🗑️</button>
+                                            <button @onclick="() => SeleccionarFamilia(fam)" class="p-2 hover:bg-slate-900 hover:text-white rounded-lg transition-all" title="Editar">✏️</button>
+                                            <button @onclick="() => Eliminar(fam.Id)" class="p-2 hover:bg-red-600 hover:text-white rounded-lg transition-all" title="Eliminar">🗑️</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -79,7 +96,7 @@
         @* --- PANEL DE EDICIÓN (LADO DERECHO) --- *@
         <div class="lg:col-span-4">
             <div class="bg-slate-900 rounded-[2rem] p-8 sticky top-6 shadow-2xl border border-slate-800">
-                <div class="mb-8">
+                <div class="mb-8 border-b border-slate-800 pb-6">
                     <h3 class="text-white font-black uppercase text-xl tracking-tighter italic">
                         @(familiaActual.Id == 0 ? "Nueva Familia" : "Editar Familia")
                     </h3>
@@ -89,7 +106,7 @@
                 <EditForm Model="familiaActual" OnValidSubmit="GuardarFamilia">
                     <DataAnnotationsValidator />
                     <div class="space-y-6">
-                        @* CAMPO NOMBRE *@
+                        
                         <div>
                             <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Nombre de la Familia</label>
                             <InputText @bind-Value="familiaActual.Nombre" 
@@ -98,7 +115,14 @@
                             <ValidationMessage For="@(() => familiaActual.Nombre)" class="text-amber-500 text-[10px] mt-2 font-bold uppercase" />
                         </div>
 
-                        @* CAMPO DESCRIPCIÓN *@
+                        <div>
+                            <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Código Interno / Reportes</label>
+                            <InputText @bind-Value="familiaActual.CodigoInterno" 
+                                      class="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl text-white font-mono uppercase focus:ring-2 focus:ring-amber-500/50 outline-none transition" 
+                                      placeholder="P. ej: CONS" />
+                            <ValidationMessage For="@(() => familiaActual.CodigoInterno)" class="text-amber-500 text-[10px] mt-2 font-bold uppercase" />
+                        </div>
+
                         <div>
                             <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Descripción Detallada</label>
                             <InputTextArea @bind-Value="familiaActual.Descripcion" 
@@ -106,13 +130,11 @@
                                           placeholder="Breve explicación de la categoría..." />
                         </div>
 
-                        @* CHECKBOX ACTIVA *@
                         <div class="flex items-center gap-3 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
                             <InputCheckbox @bind-Value="familiaActual.IsActiva" class="h-5 w-5 rounded border-slate-700 text-amber-500 bg-slate-900" />
                             <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Familia en Uso / Activa</span>
                         </div>
 
-                        @* ACCIONES FORMULARIO *@
                         <div class="flex flex-col gap-3 pt-6">
                             <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-amber-900/20">
                                 @(familiaActual.Id == 0 ? "Registrar Familia" : "Sincronizar Cambios")
@@ -134,59 +156,82 @@
 </div>
 
 @code {
-    private List<FamiliaArticulo>? familias;
-    private FamiliaArticulo familiaActual = new() { IsActiva = true };
+    private List<Familia>? familias;
+    private Familia familiaActual = new() { IsActiva = true };
 
     protected override async Task OnInitializedAsync() => await CargarFamilias();
 
     private async Task CargarFamilias()
     {
         try {
-            familias = await Http.GetFromJsonAsync<List<FamiliaArticulo>>("api/familiasarticulos");
-        } catch { 
-            // Manejar error de conexión
+            familias = await Http.GetFromJsonAsync<List<Familia>>("api/familias");
+        } catch (Exception ex) { 
+            await Notificar($"Error de conexión: {ex.Message}", "error");
         }
     }
 
     private void NuevaFamilia()
     {
-        familiaActual = new FamiliaArticulo { IsActiva = true };
+        familiaActual = new Familia { IsActiva = true };
         StateHasChanged();
     }
 
-    private void SeleccionarFamilia(FamiliaArticulo fam)
+    private void SeleccionarFamilia(Familia fam)
     {
-        // Clonamos para evitar que el binding actualice la tabla en tiempo real antes de guardar en BD
-        familiaActual = new FamiliaArticulo 
+        // Clonación para edición aislada
+        familiaActual = new Familia 
         { 
             Id = fam.Id, 
             Nombre = fam.Nombre, 
             Descripcion = fam.Descripcion, 
-            IsActiva = fam.IsActiva 
+            CodigoInterno = fam.CodigoInterno,
+            IsActiva = fam.IsActiva,
+            FechaCreacion = fam.FechaCreacion
         };
     }
 
     private async Task GuardarFamilia()
     {
-        HttpResponseMessage response;
-        if (familiaActual.Id == 0) 
-            response = await Http.PostAsJsonAsync("api/familiasarticulos", familiaActual);
-        else 
-            response = await Http.PutAsJsonAsync($"api/familiasarticulos/{familiaActual.Id}", familiaActual);
+        try {
+            HttpResponseMessage response;
+            if (familiaActual.Id == 0) 
+                response = await Http.PostAsJsonAsync("api/familias", familiaActual);
+            else 
+                response = await Http.PutAsJsonAsync($"api/familias/{familiaActual.Id}", familiaActual);
 
-        if (response.IsSuccessStatusCode)
-        {
-            await CargarFamilias();
-            NuevaFamilia();
+            if (response.IsSuccessStatusCode)
+            {
+                await Notificar("Categoría de logística sincronizada", "success");
+                await CargarFamilias();
+                NuevaFamilia();
+            }
+            else {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                await Notificar($"Error de servidor: {errorMsg}", "error");
+            }
+        } catch (Exception ex) {
+            await Notificar($"Error crítico: {ex.Message}", "error");
         }
     }
 
     private async Task Eliminar(int id)
     {
-        if (await JS.InvokeAsync<bool>("confirm", "Confirmar eliminación de la familia. Asegúrese de que no contenga artículos activos."))
+        var confirm = await JS.InvokeAsync<bool>("confirm", "¿Confirmar la desactivación (baja lógica) de esta familia?");
+        if (confirm)
         {
-            var response = await Http.DeleteAsync($"api/familiasarticulos/{id}");
-            if (response.IsSuccessStatusCode) await CargarFamilias();
+            var response = await Http.DeleteAsync($"api/familias/{id}");
+            if (response.IsSuccessStatusCode) 
+            {
+                await Notificar("Familia marcada como inactiva", "success");
+                await CargarFamilias();
+            }
+            else 
+            {
+                var msg = await response.Content.ReadAsStringAsync();
+                await Notificar(msg, "error");
+            }
         }
     }
+
+    private async Task Notificar(string msg, string tipo) => await JS.InvokeVoidAsync("showToast", msg, tipo);
 }

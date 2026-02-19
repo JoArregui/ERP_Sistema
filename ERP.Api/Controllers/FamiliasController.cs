@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ERP.Domain.Entities;
 using ERP.Data;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ERP.API.Controllers
 {
@@ -20,9 +24,16 @@ namespace ERP.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Familia>>> GetFamilias()
         {
-            return await _context.Familias
-                .OrderBy(f => f.Nombre)
-                .ToListAsync();
+            try
+            {
+                return await _context.Familias
+                    .OrderBy(f => f.Nombre)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error al recuperar familias: {ex.Message}");
+            }
         }
 
         // GET: api/Familias/5
@@ -33,45 +44,54 @@ namespace ERP.API.Controllers
                 .Include(f => f.Articulos)
                 .FirstOrDefaultAsync(f => f.Id == id);
 
-            if (familia == null) return NotFound();
+            if (familia == null)
+            {
+                return NotFound(new { Message = "Familia no encontrada" });
+            }
 
             return familia;
-        }
-
-        // GET: api/Familias/stats
-        [HttpGet("stats")]
-        public async Task<ActionResult> GetFamiliasStats()
-        {
-            var stats = await _context.Familias
-                .Select(f => new
-                {
-                    f.Id,
-                    f.Nombre,
-                    CantidadArticulos = f.Articulos.Count,
-                    ValorStock = f.Articulos.Sum(a => a.Stock * a.PrecioCompra)
-                })
-                .ToListAsync();
-
-            return Ok(stats);
         }
 
         // POST: api/Familias
         [HttpPost]
         public async Task<ActionResult<Familia>> PostFamilia(Familia familia)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            _context.Familias.Add(familia);
-            await _context.SaveChangesAsync();
+            try
+            {
+                familia.FechaCreacion = DateTime.Now;
+                _context.Familias.Add(familia);
+                await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetFamilia), new { id = familia.Id }, familia);
+                return CreatedAtAction(nameof(GetFamilia), new { id = familia.Id }, familia);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error al crear familia: {ex.Message}");
+            }
         }
 
         // PUT: api/Familias/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutFamilia(int id, Familia familia)
         {
-            if (id != familia.Id) return BadRequest("ID no coincide");
+            if (id != familia.Id)
+            {
+                return BadRequest("El ID proporcionado no coincide con la entidad.");
+            }
+
+            var existente = await _context.Familias.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id);
+            if (existente == null)
+            {
+                return NotFound();
+            }
+
+            familia.FechaCreacion = existente.FechaCreacion;
+            familia.UltimaModificacion = DateTime.Now;
 
             _context.Entry(familia).State = EntityState.Modified;
 
@@ -84,29 +104,42 @@ namespace ERP.API.Controllers
                 if (!FamiliaExists(id)) return NotFound();
                 else throw;
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error al actualizar: {ex.Message}");
+            }
 
             return NoContent();
         }
 
-        // DELETE: api/Familias/5 (Baja lógica mediante el QueryFilter de IsActiva)
+        // DELETE: api/Familias/5 (Baja lógica con validación de integridad)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteFamilia(int id)
         {
             var familia = await _context.Familias.FindAsync(id);
-            if (familia == null) return NotFound();
+            if (familia == null)
+            {
+                return NotFound();
+            }
 
+            // Validación de integridad: No desactivar si tiene artículos
             var tieneArticulos = await _context.Articulos.AnyAsync(a => a.FamiliaId == id);
             if (tieneArticulos)
             {
-                return BadRequest("No se puede desactivar una familia que contiene artículos vinculados.");
+                return BadRequest("Restricción de integridad: No se puede desactivar una familia que contiene artículos vinculados. Mueva los artículos a otra categoría primero.");
             }
 
             familia.IsActiva = false;
+            familia.UltimaModificacion = DateTime.Now;
+            
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool FamiliaExists(int id) => _context.Familias.Any(e => e.Id == id);
+        private bool FamiliaExists(int id)
+        {
+            return _context.Familias.Any(e => e.Id == id);
+        }
     }
 }

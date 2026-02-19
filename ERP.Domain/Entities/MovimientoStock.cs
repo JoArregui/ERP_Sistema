@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -17,9 +18,16 @@ namespace ERP.Domain.Entities
         [ForeignKey("ArticuloId")]
         public virtual Articulo? Articulo { get; set; }
 
+        // ESTA ES LA LÍNEA QUE CORRIGE EL ERROR CS0117
+        [Required]
+        public int EmpresaId { get; set; }
+
+        [ForeignKey("EmpresaId")]
+        public virtual Empresa? Empresa { get; set; }
+
         [Required]
         [StringLength(20)]
-        public string TipoMovimiento { get; set; } = string.Empty; // "ENTRADA", "SALIDA", "AJUSTE"
+        public string TipoMovimiento { get; set; } = string.Empty; 
 
         [Required]
         [Column(TypeName = "decimal(18,4)")]
@@ -30,7 +38,7 @@ namespace ERP.Domain.Entities
         public decimal StockResultante { get; set; }
 
         [StringLength(100)]
-        public string ReferenciaDocumento { get; set; } = string.Empty; // Nº Albarán o Factura
+        public string ReferenciaDocumento { get; set; } = string.Empty; 
 
         public string Observaciones { get; set; } = string.Empty;
     }

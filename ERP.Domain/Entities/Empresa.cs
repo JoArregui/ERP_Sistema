@@ -1,4 +1,6 @@
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ERP.Domain.Entities
 {
@@ -29,19 +31,21 @@ namespace ERP.Domain.Entities
         public string? Telefono { get; set; }
         public string? Web { get; set; }
 
-        // --- DATOS MERCANTILES (Para validez legal en facturas) ---
-        public string? RegistroMercantil { get; set; } // Ej: Registro Mercantil de Madrid, Tomo...
+        // --- DATOS MERCANTILES ---
+        public string? RegistroMercantil { get; set; }
 
         // --- ATRIBUTOS VISUALES ---
+        public string? LogoUrl { get; set; } 
         public string? LogoBase64 { get; set; } 
         public string ColorHex { get; set; } = "#3498db"; 
         public string? Eslogan { get; set; }
-        // --------------------------
 
         // --- CONFIGURACIÓN DE NEGOCIO ---
         [Required]
         public string SerieFacturacion { get; set; } = "2026";
         public int UltimoNumeroFactura { get; set; } = 0;
+        
+        [Column(TypeName = "decimal(18,4)")]
         public decimal IvaDefecto { get; set; } = 21m;
 
         public bool IsActiva { get; set; } = true;

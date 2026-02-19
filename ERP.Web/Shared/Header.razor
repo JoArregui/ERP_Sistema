@@ -1,0 +1,59 @@
+@using ERP.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<header class="h-20 bg-[#0f172a] border-b border-slate-800/50 flex items-center justify-between px-8 shadow-sm">
+    
+    @* BUSCADOR GLOBAL O TÍTULO *@
+    <div class="flex items-center">
+        <h2 class="text-slate-400 font-bold text-xs uppercase tracking-[0.2em]">Panel de Control <span class="text-slate-600 mx-2">/</span> <span class="text-white">Escritorio</span></h2>
+    </div>
+
+    @* INFO USUARIO Y ACCIONES *@
+    <div class="flex items-center gap-6">
+        
+        @* NOTIFICACIONES (ESTÁTICO) *@
+        <button class="relative text-slate-400 hover:text-white transition-colors">
+            <i class="bi bi-bell-fill text-xl"></i>
+            <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0f172a]">3</span>
+        </button>
+
+        @* PERFIL Y LOGOUT *@
+        <AuthorizeView>
+            <Authorized>
+                <div class="flex items-center gap-4 pl-6 border-l border-slate-800">
+                    <div class="flex flex-col items-end leading-none">
+                        <span class="text-white font-black text-[11px] uppercase tracking-wider">@context.User.Identity?.Name</span>
+                        <span class="text-blue-500 font-bold text-[9px] uppercase tracking-widest mt-1">Conectado</span>
+                    </div>
+                    
+                    @* BOTÓN CERRAR SESIÓN *@
+                    <button @onclick="HandleLogout" 
+                            class="w-10 h-10 bg-slate-800/50 hover:bg-red-500/10 border border-slate-700/50 hover:border-red-500/50 text-slate-400 hover:text-red-500 rounded-xl transition-all flex items-center justify-center group shadow-lg"
+                            title="Cerrar Sesión">
+                        <i class="bi bi-power text-xl group-hover:scale-110 transition-transform"></i>
+                    </button>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <button @onclick='() => NavigationManager.NavigateTo("login")' 
+                        class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-900/20">
+                    Iniciar Sesión
+                </button>
+            </NotAuthorized>
+        </AuthorizeView>
+
+    </div>
+</header>
+
+@code {
+    private async Task HandleLogout()
+    {
+        // 1. Llama al servicio para borrar token y notificar estado
+        await AuthService.Logout();
+        
+        // 2. Redirige al login
+        NavigationManager.NavigateTo("login");
+    }
+}
