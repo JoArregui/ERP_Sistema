@@ -51,6 +51,17 @@ namespace ERP.Domain.Entities
         [StringLength(34)]
         public string? IBAN { get; set; } 
 
+        // --- NUEVOS CAMPOS: VACACIONES ---
+        public int VacacionesTotales { get; set; } = 22;
+        public int VacacionesDisfrutadas { get; set; } = 0;
+        
+        [NotMapped]
+        public int VacacionesPendientes => VacacionesTotales - VacacionesDisfrutadas;
+
+        // --- NUEVOS CAMPOS: DOCUMENTACIÓN ---
+        public string? RutaDocumentoPdf { get; set; }
+        public string? NombreArchivoPdf { get; set; }
+
         // --- LÓGICA DE ESTADO ---
         [NotMapped] 
         public bool IsActivo => !FechaBaja.HasValue || FechaBaja > DateTime.Now;
@@ -61,7 +72,6 @@ namespace ERP.Domain.Entities
         [ForeignKey("EmpresaId")]
         public virtual Empresa? Empresa { get; set; }
 
-        // Colecciones para navegación
         public virtual ICollection<Nomina> Nominas { get; set; } = new List<Nomina>();
         public virtual ICollection<ControlHorario> ControlesHorarios { get; set; } = new List<ControlHorario>();
     }
