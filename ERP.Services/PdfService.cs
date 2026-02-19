@@ -3,7 +3,9 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using ERP.Domain.Entities;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace ERP.Services
 {
@@ -11,7 +13,7 @@ namespace ERP.Services
     {
         public PdfService()
         {
-            // Configuración de licencia para uso comunitario
+            // Ajustado a la versión actual de QuestPDF
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -28,7 +30,6 @@ namespace ERP.Services
                     page.PageColor(Colors.White);
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Helvetica"));
 
-                    // --- CABECERA ---
                     page.Header().Row(row =>
                     {
                         row.RelativeItem().Column(col =>
@@ -61,7 +62,6 @@ namespace ERP.Services
                         });
                     });
 
-                    // --- CONTENIDO ---
                     page.Content().PaddingVertical(1, Unit.Centimetre).Column(col =>
                     {
                         col.Item().Row(row =>
@@ -99,7 +99,8 @@ namespace ERP.Services
                                 header.Cell().Element(CellStyle).AlignRight().Text("IVA");
                                 header.Cell().Element(CellStyle).AlignRight().Text("SUBTOTAL");
 
-                                IContainer CellStyle(IContainer c) => c.PaddingVertical(8).BorderBottom(2).BorderColor(colorMarca).DefaultTextStyle(x => x.ExtraBold().FontSize(9));
+                                // Corrección CS0311: No aplicar estilos de texto al IContainer
+                                IContainer CellStyle(IContainer c) => c.PaddingVertical(8).BorderBottom(2).BorderColor(colorMarca);
                             });
 
                             if (factura.Lineas != null)
@@ -119,7 +120,6 @@ namespace ERP.Services
                             }
                         });
 
-                        // Totales
                         col.Item().AlignRight().PaddingTop(20).MinWidth(200).Column(c =>
                         {
                             c.Item().Row(r => {
@@ -147,7 +147,6 @@ namespace ERP.Services
                         }
                     });
 
-                    // --- PIE DE PÁGINA ---
                     page.Footer().Row(row =>
                     {
                         row.RelativeItem().Text(x =>
@@ -185,7 +184,7 @@ namespace ERP.Services
                         row.RelativeItem().Column(col =>
                         {
                             col.Item().Text("RESUMEN DE CIERRE DE CAJA").FontSize(20).ExtraBold().FontColor(colorMarca);
-                            col.Item().Text($"Empresa: {empresa.RazonSocial}").SemiBold();
+                            col.Item().Text($"{empresa.RazonSocial}").SemiBold().FontSize(12);
                             col.Item().Text($"Terminal: {cierre.Terminal}").FontSize(9);
                         });
 
@@ -198,17 +197,15 @@ namespace ERP.Services
 
                     page.Content().PaddingVertical(1, Unit.Centimetre).Column(col =>
                     {
-                        // Bloque de Totales de Venta
                         col.Item().Table(table =>
                         {
-                            table.ColumnsDefinition(columns =>
-                            {
+                            table.ColumnsDefinition(columns => {
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
                             });
 
-                            table.Cell().Element(HeaderStyle).Text("RESUMEN DE CAJA");
-                            table.Cell().Element(HeaderStyle).AlignRight().Text("IMPORTE");
+                            table.Cell().Element(HeaderStyle).Text("RESUMEN DE CAJA").SemiBold();
+                            table.Cell().Element(HeaderStyle).AlignRight().Text("IMPORTE").SemiBold();
 
                             table.Cell().Element(RowStyle).Text("Ventas en Efectivo (Esperado)");
                             table.Cell().Element(RowStyle).AlignRight().Text($"{cierre.TotalVentasEfectivo:N2} €");
@@ -219,70 +216,120 @@ namespace ERP.Services
                             table.Cell().PaddingVertical(10).BorderBottom(1).BorderColor(Colors.Black).Text("EFECTIVO REAL EN CAJA").Bold();
                             table.Cell().PaddingVertical(10).BorderBottom(1).BorderColor(Colors.Black).AlignRight().Text($"{cierre.ImporteRealEnCaja:N2} €").Bold();
 
-                            var colorDescuadre = cierre.Descuadre == 0 ? Colors.Green.Medium : Colors.Red.Medium;
+                            var colorDescuadre = Math.Abs(cierre.Descuadre) < 0.01m ? Colors.Green.Medium : Colors.Red.Medium;
                             table.Cell().Background(Colors.Grey.Lighten4).Padding(10).Text("DIFERENCIA / DESCUADRE").ExtraBold();
                             table.Cell().Background(Colors.Grey.Lighten4).Padding(10).AlignRight().Text($"{cierre.Descuadre:N2} €").ExtraBold().FontColor(colorDescuadre);
 
-                            IContainer HeaderStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(1).DefaultTextStyle(x => x.SemiBold());
+                            IContainer HeaderStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(1);
                             IContainer RowStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2);
                         });
 
-                        // MEJORA: TABLA DE DESGLOSE FISCAL
-                        col.Item().PaddingTop(30).Text("DESGLOSE POR TIPOS DE IVA").FontSize(12).ExtraBold().Underline();
-                        col.Item().PaddingTop(10).Table(table =>
+                        col.Item().PaddingTop(25).Row(row =>
                         {
-                            table.ColumnsDefinition(columns =>
-                            {
+                            // Tabla Categorías
+                            row.RelativeItem().PaddingRight(10).Column(c => {
+                                c.Item().Text("VENTAS POR CATEGORÍA").FontSize(9).ExtraBold().FontColor(colorMarca);
+                                c.Item().PaddingTop(5).Table(t => {
+                                    t.ColumnsDefinition(cd => { cd.RelativeColumn(); cd.RelativeColumn(); });
+                                    
+                                    var cats = string.IsNullOrEmpty(cierre.DataCategoriasJson) 
+                                        ? new List<ResumenItem>() 
+                                        : JsonSerializer.Deserialize<List<ResumenItem>>(cierre.DataCategoriasJson) ?? new List<ResumenItem>();
+                                    
+                                    foreach(var item in cats) {
+                                        t.Cell().Element(SubRow).Text(item.Nombre).FontSize(8);
+                                        t.Cell().Element(SubRow).AlignRight().Text($"{item.Total:N2} €").FontSize(8);
+                                    }
+                                });
+                            });
+
+                            // Tabla Usuarios
+                            row.RelativeItem().PaddingLeft(10).Column(c => {
+                                c.Item().Text("VENTAS POR USUARIO").FontSize(9).ExtraBold().FontColor(colorMarca);
+                                c.Item().PaddingTop(5).Table(t => {
+                                    t.ColumnsDefinition(cd => { cd.RelativeColumn(); cd.RelativeColumn(); });
+                                    
+                                    var usrs = string.IsNullOrEmpty(cierre.DataUsuariosJson) 
+                                        ? new List<ResumenItem>() 
+                                        : JsonSerializer.Deserialize<List<ResumenItem>>(cierre.DataUsuariosJson) ?? new List<ResumenItem>();
+
+                                    foreach(var item in usrs) {
+                                        t.Cell().Element(SubRow).Text(item.Nombre).FontSize(8);
+                                        t.Cell().Element(SubRow).AlignRight().Text($"{item.Total:N2} €").FontSize(8);
+                                    }
+                                });
+                            });
+
+                            IContainer SubRow(IContainer c) => c.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten4).PaddingVertical(3);
+                        });
+
+                        col.Item().PaddingTop(25).Text("DESGLOSE POR TIPOS DE IVA").FontSize(10).ExtraBold().Underline();
+                        col.Item().PaddingTop(5).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns => {
                                 columns.RelativeColumn(2);
                                 columns.RelativeColumn();
                                 columns.RelativeColumn();
                             });
 
                             table.Header(h => {
-                                h.Cell().Element(Head).Text("Tipo");
-                                h.Cell().Element(Head).AlignRight().Text("Base");
-                                h.Cell().Element(Head).AlignRight().Text("Cuota");
-                                IContainer Head(IContainer c) => c.BorderBottom(1).PaddingVertical(5).DefaultTextStyle(x => x.Bold());
+                                h.Cell().Element(HeadStyle).Text("Tipo").Bold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Base Imponible").Bold();
+                                h.Cell().Element(HeadStyle).AlignRight().Text("Cuota IVA").Bold();
+                                IContainer HeadStyle(IContainer c) => c.BorderBottom(1).PaddingVertical(5);
                             });
 
                             if (cierre.Base21 > 0) {
-                                table.Cell().Element(R).Text("IVA 21%");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Base21:N2} €");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Iva21:N2} €");
+                                table.Cell().Element(RStyle).Text("IVA General 21%");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Base21:N2} €");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Iva21:N2} €");
                             }
                             if (cierre.Base10 > 0) {
-                                table.Cell().Element(R).Text("IVA 10%");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Base10:N2} €");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Iva10:N2} €");
+                                table.Cell().Element(RStyle).Text("IVA Reducido 10%");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Base10:N2} €");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Iva10:N2} €");
                             }
                             if (cierre.Base4 > 0) {
-                                table.Cell().Element(R).Text("IVA 4%");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Base4:N2} €");
-                                table.Cell().Element(R).AlignRight().Text($"{cierre.Iva4:N2} €");
+                                table.Cell().Element(RStyle).Text("IVA Superreducido 4%");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Base4:N2} €");
+                                table.Cell().Element(RStyle).AlignRight().Text($"{cierre.Iva4:N2} €");
                             }
 
                             table.Cell().ColumnSpan(2).PaddingVertical(10).AlignRight().Text("TOTAL IVA:").Bold();
                             table.Cell().PaddingVertical(10).AlignRight().Text($"{cierre.TotalIva:N2} €").Bold();
 
-                            IContainer R(IContainer c) => c.PaddingVertical(5).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3);
+                            IContainer RStyle(IContainer c) => c.PaddingVertical(5).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten3);
                         });
 
                         if (!string.IsNullOrWhiteSpace(cierre.Observaciones))
                         {
-                            col.Item().PaddingTop(20).Column(c =>
-                            {
+                            col.Item().PaddingTop(20).Column(c => {
                                 c.Item().Text("OBSERVACIONES:").FontSize(8).Bold();
                                 c.Item().Padding(5).Background(Colors.Grey.Lighten4).Text(cierre.Observaciones).FontSize(9).Italic();
                             });
                         }
                     });
 
-                    page.Footer().AlignCenter().Text(x =>
-                    {
-                        x.Span("Firma Responsable: ___________________________").FontSize(9);
+                    page.Footer().PaddingTop(20).Column(c => {
+                        c.Item().AlignCenter().Text("Firma Responsable: ___________________________").FontSize(9);
+                        c.Item().PaddingTop(10).AlignCenter().Text("Documento interno de control de caja").FontSize(7).FontColor(Colors.Grey.Medium);
                     });
                 });
             }).GeneratePdf();
+        }
+
+        private class ResumenItem
+        {
+            private string _nombre = "";
+
+            [System.Text.Json.Serialization.JsonPropertyName("Categoria")]
+            public string? CategoriaNombre { set { if (value != null) _nombre = value; } }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("Usuario")]
+            public string? UsuarioNombre { set { if (value != null) _nombre = value; } }
+
+            public string Nombre { get => _nombre; set => _nombre = value; }
+            public decimal Total { get; set; }
         }
     }
 }

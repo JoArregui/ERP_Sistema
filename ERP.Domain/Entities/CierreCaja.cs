@@ -31,16 +31,19 @@ namespace ERP.Domain.Entities
         // --- DESGLOSE FISCAL ---
         [Column(TypeName = "decimal(18,4)")]
         public decimal Base21 { get; set; }
+        
         [Column(TypeName = "decimal(18,4)")]
         public decimal Iva21 { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
         public decimal Base10 { get; set; }
+        
         [Column(TypeName = "decimal(18,4)")]
         public decimal Iva10 { get; set; }
 
         [Column(TypeName = "decimal(18,4)")]
         public decimal Base4 { get; set; }
+        
         [Column(TypeName = "decimal(18,4)")]
         public decimal Iva4 { get; set; }
 
@@ -56,5 +59,9 @@ namespace ERP.Domain.Entities
         public string? Observaciones { get; set; } 
 
         public bool IsProcesado { get; set; } = false;
+
+        // Nuevos campos para reportes detallados
+        public string? DataCategoriasJson { get; set; }
+        public string? DataUsuariosJson { get; set; }
     }
 }

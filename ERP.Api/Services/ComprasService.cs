@@ -116,7 +116,7 @@ namespace ERP.API.Services
                         Cantidad = item.CantidadAReponer,
                         PrecioUnitario = articulo.PrecioCompra,
                         DescripcionArticulo = articulo.Descripcion,
-                        PorcentajeIva = (double)articulo.PorcentajeIva
+                        PorcentajeIva = articulo.PorcentajeIva // Corregido: ya no requiere casteo a double
                     };
 
                     nuevoPedido.Lineas.Add(linea);
@@ -125,8 +125,8 @@ namespace ERP.API.Services
                 // Cálculo automático del Total basado en las líneas recién agregadas
                 nuevoPedido.Total = nuevoPedido.Lineas.Sum(l => l.Cantidad * l.PrecioUnitario);
                 
-                // Cálculo de Base e IVA (asumiendo IVA incluido o desglosado según lógica de negocio)
-                nuevoPedido.BaseImponible = nuevoPedido.Total / 1.21m; // Ejemplo simple
+                // Cálculo de Base e IVA
+                nuevoPedido.BaseImponible = nuevoPedido.Total / 1.21m; 
                 nuevoPedido.TotalIva = nuevoPedido.Total - nuevoPedido.BaseImponible;
 
                 _context.Documentos.Add(nuevoPedido);

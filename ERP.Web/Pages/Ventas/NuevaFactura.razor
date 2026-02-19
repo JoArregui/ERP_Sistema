@@ -198,15 +198,14 @@
             if (art != null)
             {
                 linea.ArticuloId = art.Id;
-                linea.DescripcionArticulo = art.Descripcion; // CAMBIADO: Antes era .Nombre
+                linea.DescripcionArticulo = art.Descripcion;
                 linea.PrecioUnitario = art.PrecioVenta;
-                linea.PorcentajeIva = (double)art.PorcentajeIva; // CAMBIADO: Casteo de decimal a double para DocumentoLinea
+                linea.PorcentajeIva = art.PorcentajeIva; // Corregido: asignación directa decimal
                 CalcularTotales();
             }
         }
     }
 
-    // Métodos auxiliares para evitar el error CS1662 al usar lambdas complejas en el UI
     private void UpdateCantidad(DocumentoLinea linea, ChangeEventArgs e)
     {
         if (decimal.TryParse(e.Value?.ToString(), out decimal val)) linea.Cantidad = val;
@@ -221,8 +220,8 @@
 
     private void CalcularTotales()
     {
-        documento.BaseImponible = documento.Lineas.Sum(l => l.Cantidad * l.PrecioUnitario);
-        documento.TotalIva = documento.Lineas.Sum(l => (l.Cantidad * l.PrecioUnitario) * (decimal)(l.PorcentajeIva / 100));
+        documento.BaseImponible = documento.Lineas.Sum(l => l.Subtotal);
+        documento.TotalIva = documento.Lineas.Sum(l => l.Subtotal * (l.PorcentajeIva / 100m));
         documento.Total = documento.BaseImponible + documento.TotalIva;
     }
 

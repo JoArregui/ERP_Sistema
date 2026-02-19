@@ -196,7 +196,7 @@
         </div>
     }
 
-    @* MODAL DE PREVIA TÉRMICA (Mantenido) *@
+    @* MODAL DE PREVIA TÉRMICA *@
     @if (MostrarModalTicket) {
         <div class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
              <div class="bg-white text-slate-900 w-full max-w-[400px] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in duration-300">
@@ -259,22 +259,39 @@
     private decimal TotalFacturaTicketPrevia = 0;
     private int? UltimaFacturaIdIdGenerada;
 
+    // --- CORRECCIÓN DE TIPOS ---
+    // Aseguramos que los cálculos de IVA (double) se conviertan a decimal
     private decimal BaseImponible => Lineas.Sum(l => l.Subtotal);
-    private decimal TotalIva => Lineas.Sum(l => l.ImporteIva);
+    private decimal TotalIva => Lineas.Sum(l => (decimal)l.ImporteIva);
     private decimal TotalFactura => Lineas.Sum(l => l.Total);
     private bool IsInvalidVenta => ClienteFactura == null || !Lineas.Any();
 
+    private DotNetObjectReference<NuevaVenta>? objRef;
+
     protected override async Task OnAfterRenderAsync(bool firstRender) {
-        if (firstRender) await JS.InvokeVoidAsync("window.addEventListener", "keydown", DotNetObjectReference.Create(this));
+        if (firstRender) {
+            objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("window.addEventListener", "keydown", objRef);
+        }
     }
 
     [JSInvokable]
     public async Task HandleKeyDown(KeyboardEventArgs e) {
         if (IsProcesando) return;
         switch (e.Key) {
-            case "F10": if (MostrarModalPago) await FinalizarVenta(false); break;
-            case "F12": if (MostrarModalPago) await FinalizarVenta(true); break;
-            case "Escape": MostrarModalPago = false; MostrarModalTicket = false; break;
+            case "F10": 
+                if (MostrarModalPago && !(CambioADevolver < 0 && MetodoPago == "Efectivo")) 
+                    await FinalizarVenta(false); 
+                break;
+            case "F12": 
+                if (MostrarModalPago && !(CambioADevolver < 0 && MetodoPago == "Efectivo")) 
+                    await FinalizarVenta(true); 
+                break;
+            case "Escape": 
+                MostrarModalPago = false; 
+                MostrarModalTicket = false; 
+                StateHasChanged();
+                break;
         }
     }
 
@@ -294,7 +311,7 @@
 
     private void AbrirPasarelaPago() {
         if (IsInvalidVenta) return;
-        ImporteEntregado = TotalFactura; // Sugerencia de importe exacto
+        ImporteEntregado = TotalFactura;
         MetodoPago = "Efectivo";
         MostrarModalPago = true;
     }
@@ -315,7 +332,8 @@
                     DescripcionArticulo = l.Articulo.Descripcion,
                     Cantidad = l.Cantidad,
                     PrecioUnitario = l.PrecioUnitario,
-                    PorcentajeIva = (double)l.Articulo.PorcentajeIva
+                    // Se asume que PorcentajeIva en DocumentoLinea es double
+                    PorcentajeIva = (decimal)l.Articulo.PorcentajeIva 
                 }).ToList()
             };
 
@@ -336,13 +354,12 @@
                     FinalizarCicloVenta();
                 }
             }
-        } catch (Exception ex) 
-{ 
-    // Ahora 'ex' se usa para dar detalles técnicos en la consola de depuración
-    Console.WriteLine($"[Error de Venta]: {ex.Message}"); 
-    NotificationService.ShowNotification("Error al procesar la venta. Revise la conexión.", NotificationType.Error);
-} finally {
+        } catch (Exception ex) { 
+            Console.WriteLine($"[Error de Venta]: {ex.Message}"); 
+            NotificationService.ShowNotification("Error al procesar la venta. Revise la conexión.", NotificationType.Error);
+        } finally {
             IsProcesando = false;
+            StateHasChanged();
         }
     }
 
@@ -355,10 +372,14 @@
     }
 
     private async Task DescargarDocumento(string endpoint, int id) {
-        var response = await Http.GetAsync($"api/facturacion/{endpoint}/{id}");
-        if (response.IsSuccessStatusCode) {
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            await JS.InvokeVoidAsync("downloadFile", $"DOC_{id}.pdf", Convert.ToBase64String(bytes));
+        try {
+            var response = await Http.GetAsync($"api/facturacion/{endpoint}/{id}");
+            if (response.IsSuccessStatusCode) {
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                await JS.InvokeVoidAsync("downloadFile", $"DOC_{id}.pdf", Convert.ToBase64String(bytes));
+            }
+        } catch (Exception ex) {
+            Console.WriteLine($"[Error Descarga]: {ex.Message}");
         }
     }
 
@@ -370,7 +391,8 @@
     }
 
     private void CerrarModal() => MostrarModalTicket = false;
-    private string GetBtnStyle() => (IsInvalidVenta || IsProcesando) ? "bg-slate-800 text-slate-600" : "bg-emerald-500 hover:bg-emerald-400 text-slate-900";
-    private string GetTicketBtnStyle() => (IsInvalidVenta || IsProcesando) ? "bg-slate-800 text-slate-600" : "bg-blue-600 hover:bg-blue-500 text-white";
-    public void Dispose() { }
+    
+    public void Dispose() {
+        objRef?.Dispose();
+    }
 }

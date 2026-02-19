@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ERP.Domain.Entities;
 using ERP.Data;
 using ERP.Services;
+using System.Text.Json;
 
 namespace ERP.API.Controllers
 {
@@ -24,13 +25,28 @@ namespace ERP.API.Controllers
         {
             try
             {
-                // Obtenemos facturas de venta no contabilizadas con sus líneas
                 var docs = await _context.Documentos
                     .Include(d => d.Lineas)
                     .Where(d => d.EmpresaId == empresaId && !d.IsContabilizado && !d.EsCompra && d.Tipo == TipoDocumento.Factura)
                     .ToListAsync();
 
+                if (!docs.Any()) return Ok(new CierreCaja { EmpresaId = empresaId });
+
                 var lineas = docs.SelectMany(d => d.Lineas).ToList();
+
+                // Agrupación por Categorías (usando la nueva propiedad en DocumentoLinea)
+                var ventasPorCategoria = lineas
+                    .GroupBy(l => l.CategoriaNombre ?? "General")
+                    .Select(g => new { Categoria = g.Key, Total = g.Sum(x => x.Cantidad * x.PrecioUnitario) })
+                    .OrderByDescending(x => x.Total)
+                    .ToList();
+
+                // Agrupación por Usuarios (usando la nueva propiedad en DocumentoComercial)
+                var ventasPorUsuario = docs
+                    .GroupBy(d => d.UsuarioNombre ?? "TPV Principal")
+                    .Select(g => new { Usuario = g.Key, Total = g.Sum(x => x.Total) })
+                    .OrderByDescending(x => x.Total)
+                    .ToList();
 
                 var cierre = new CierreCaja
                 {
@@ -40,17 +56,16 @@ namespace ERP.API.Controllers
                     TotalVentasEfectivo = docs.Where(d => d.MetodoPago == "Efectivo").Sum(d => d.Total),
                     TotalVentasTarjeta = docs.Where(d => d.MetodoPago == "Tarjeta").Sum(d => d.Total),
                     
-                    // Cálculo de desgloses fiscales
                     Base21 = lineas.Where(l => l.PorcentajeIva == 21).Sum(l => l.Cantidad * l.PrecioUnitario),
                     Iva21 = lineas.Where(l => l.PorcentajeIva == 21).Sum(l => (l.Cantidad * l.PrecioUnitario) * 0.21m),
-                    
                     Base10 = lineas.Where(l => l.PorcentajeIva == 10).Sum(l => l.Cantidad * l.PrecioUnitario),
                     Iva10 = lineas.Where(l => l.PorcentajeIva == 10).Sum(l => (l.Cantidad * l.PrecioUnitario) * 0.10m),
-
                     Base4 = lineas.Where(l => l.PorcentajeIva == 4).Sum(l => l.Cantidad * l.PrecioUnitario),
                     Iva4 = lineas.Where(l => l.PorcentajeIva == 4).Sum(l => (l.Cantidad * l.PrecioUnitario) * 0.04m),
 
                     TotalIva = docs.Sum(d => d.TotalIva),
+                    DataCategoriasJson = JsonSerializer.Serialize(ventasPorCategoria),
+                    DataUsuariosJson = JsonSerializer.Serialize(ventasPorUsuario),
                     Observaciones = "" 
                 };
 
@@ -72,9 +87,10 @@ namespace ERP.API.Controllers
             {
                 cierre.IsProcesado = true;
                 cierre.FechaCierre = DateTime.Now;
+                cierre.Empresa = null; // Evitar conflictos de tracking
+
                 _context.CierresCaja.Add(cierre);
 
-                // Marcamos los documentos como contabilizados para que no salgan en el próximo cierre
                 var documentos = await _context.Documentos
                     .Where(d => d.EmpresaId == cierre.EmpresaId && !d.IsContabilizado && !d.EsCompra && d.Tipo == TipoDocumento.Factura)
                     .ToListAsync();
@@ -106,7 +122,7 @@ namespace ERP.API.Controllers
             if (cierre == null || cierre.Empresa == null) return NotFound();
 
             var pdfBytes = _pdfService.GenerarCierreCajaPdf(cierre, cierre.Empresa);
-            return File(pdfBytes, "application/pdf", $"Cierre_{cierre.FechaCierre:yyyyMMdd}.pdf");
+            return File(pdfBytes, "application/pdf", $"Cierre_{cierre.FechaCierre:yyyyMMdd}_{id}.pdf");
         }
     }
 }
