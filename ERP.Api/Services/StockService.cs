@@ -14,12 +14,10 @@ namespace ERP.API.Services
         }
 
         /// <summary>
-        /// Procesa un documento completo, actualiza stocks, recalcula precios medios 
-        /// e incrementa la trazabilidad mediante MovimientoStock.
+        /// Procesa un documento completo: gestiona Reservas (Albarán) o Salidas Físicas (Factura).
         /// </summary>
         public async Task ProcesarMovimientoStock(int documentoId)
         {
-            // Mantenemos la transaccionalidad atómica para asegurar la integridad Stock <-> Documento
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
@@ -35,48 +33,62 @@ namespace ERP.API.Services
                     var articulo = await _context.Articulos.FindAsync(linea.ArticuloId);
                     if (articulo == null) continue;
 
-                    string tipoMov;
+                    string tipoMov = "";
                     decimal cantidadMov = linea.Cantidad;
 
+                    // --- LÓGICA DE COMPRAS (ENTRADAS) ---
                     if (doc.EsCompra) 
                     {
                         tipoMov = "ENTRADA";
-                        
-                        // --- INTELIGENCIA DE NEGOCIO: PRECIO MEDIO PONDERADO (PMP) ---
                         decimal stockPrevio = articulo.Stock;
-                        decimal nuevoStock = articulo.Stock + linea.Cantidad;
+                        articulo.Stock += linea.Cantidad;
 
-                        // Solo recalculamos si el nuevo stock es positivo para evitar errores matemáticos
-                        if (nuevoStock > 0)
+                        // Recálculo del Precio Medio Ponderado (PMP)
+                        if (articulo.Stock > 0)
                         {
-                            // Fórmula: ((Stock Actual * Precio Actual) + (Cantidad Nueva * Precio Nuevo)) / Stock Total
-                            articulo.PrecioCompra = ((stockPrevio * articulo.PrecioCompra) + (linea.Cantidad * linea.PrecioUnitario)) / nuevoStock;
+                            articulo.PrecioCompra = ((stockPrevio * articulo.PrecioCompra) + (linea.Cantidad * linea.PrecioUnitario)) / articulo.Stock;
                         }
-
-                        articulo.Stock = nuevoStock;
                     }
+                    // --- LÓGICA DE VENTAS (ALBARÁN = RESERVA / FACTURA = SALIDA) ---
                     else 
                     {
-                        tipoMov = "SALIDA";
-                        
-                        // Actualizar Stock Físico por Venta
-                        articulo.Stock -= linea.Cantidad;
+                        if (doc.Tipo == TipoDocumento.Albaran)
+                        {
+                            tipoMov = "RESERVA_BLOQUEO";
+                            articulo.StockReservado += linea.Cantidad; // Incrementa el bloqueo
+                        }
+                        else if (doc.Tipo == TipoDocumento.Factura)
+                        {
+                            tipoMov = "SALIDA_VENTA";
+                            
+                            // Si la factura nace de un Albarán previo, liberamos la reserva primero
+                            if (doc.DocumentoOrigenId.HasValue)
+                            {
+                                var docOrigen = await _context.Documentos.AsNoTracking()
+                                    .FirstOrDefaultAsync(x => x.Id == doc.DocumentoOrigenId);
+                                
+                                if (docOrigen != null && docOrigen.Tipo == TipoDocumento.Albaran)
+                                {
+                                    articulo.StockReservado -= linea.Cantidad; // Libera el bloqueo
+                                }
+                            }
+                            
+                            articulo.Stock -= linea.Cantidad; // Resta del físico real
+                        }
                     }
 
-                    // --- AUDITORÍA Y TRAZABILIDAD ---
-                    var movimiento = new MovimientoStock
+                    // REGISTRO DE MOVIMIENTO PARA AUDITORÍA
+                    _context.MovimientosStock.Add(new MovimientoStock
                     {
                         Fecha = DateTime.Now,
                         ArticuloId = articulo.Id,
-                        EmpresaId = doc.EmpresaId, // Importante para filtros multi-empresa
+                        EmpresaId = doc.EmpresaId,
                         TipoMovimiento = tipoMov,
                         Cantidad = cantidadMov,
                         StockResultante = articulo.Stock,
                         ReferenciaDocumento = doc.NumeroDocumento,
-                        Observaciones = $"Procesado automáticamente desde {doc.Tipo} (ID: {doc.Id})"
-                    };
-
-                    _context.MovimientosStock.Add(movimiento);
+                        Observaciones = $"Procesado desde {doc.Tipo} (ID: {doc.Id})."
+                    });
                 }
 
                 await _context.SaveChangesAsync();
@@ -85,9 +97,30 @@ namespace ERP.API.Services
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                // Relanzamos la excepción para que el FacturacionService sepa que el proceso falló
-                throw new Exception($"Fallo crítico en el proceso de stock: {ex.Message}", ex);
+                throw new Exception($"Error crítico en stock: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// Libera la reserva si un albarán es eliminado antes de ser facturado.
+        /// </summary>
+        public async Task LiberarReservaPorAnulacion(int albaranId)
+        {
+            var albaran = await _context.Documentos
+                .Include(d => d.Lineas)
+                .FirstOrDefaultAsync(d => d.Id == albaranId);
+
+            if (albaran == null) return;
+
+            foreach (var linea in albaran.Lineas)
+            {
+                var articulo = await _context.Articulos.FindAsync(linea.ArticuloId);
+                if (articulo != null)
+                {
+                    articulo.StockReservado -= linea.Cantidad; // Devuelve el stock a 'Disponible'
+                }
+            }
+            await _context.SaveChangesAsync();
         }
     }
 }

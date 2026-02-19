@@ -29,7 +29,14 @@ namespace ERP.Domain.Entities
         public decimal PorcentajeIva { get; set; } = 21.00m;
 
         [Column(TypeName = "decimal(18,4)")]
-        public decimal Stock { get; set; } = 0;
+        public decimal Stock { get; set; } = 0; // Representa el Stock Físico
+
+        // --- PROPIEDAD PARA EL BLOQUEO DE STOCK (ALBARANES) ---
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal StockReservado { get; set; } = 0;
+
+        [NotMapped]
+        public decimal StockDisponible => Stock - StockReservado;
 
         [Column(TypeName = "decimal(18,4)")]
         public decimal StockMinimo { get; set; } = 0;
@@ -41,15 +48,12 @@ namespace ERP.Domain.Entities
 
         public bool IsDescatalogado { get; set; } = false;
 
-        // --- NUEVA PROPIEDAD PARA IMAGEN ---
         public string? ImagenUrl { get; set; }
 
-        // --- RELACION CON FAMILIA ---
         [Required(ErrorMessage = "Debe asignar una familia al artículo")]
         public int FamiliaId { get; set; }
 
         [ForeignKey(nameof(FamiliaId))] 
-        // CORRECCIÓN: Se cambia 'FamiliaArticulo' por 'Familia' para coincidir con la clase existente
         public virtual Familia? Familia { get; set; }
     }
 }

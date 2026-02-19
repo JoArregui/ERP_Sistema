@@ -1,23 +1,23 @@
 @page "/ventas/facturas"
 @using ERP.Domain.Entities
-@using ERP.Web.Services
+@inject HttpClient Http
+@inject NavigationManager Nav
 @inject IJSRuntime JS
-@* Asumo que tienes un servicio de facturas, si no, lo adaptamos *@
 
 <div class="space-y-6 animate-in fade-in duration-500">
     @* CABECERA *@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
             <h1 class="text-3xl font-black text-white tracking-tight uppercase italic">Registro de Facturación</h1>
-            <p class="text-slate-500 font-medium">Control de ingresos, estados de cobro y exportación fiscal.</p>
+            <p class="text-slate-500 font-medium">Control de ingresos, facturas rectificativas y exportación fiscal.</p>
         </div>
         
         <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto no-print">
             <div class="flex gap-2">
-                <button @onclick="ExportarExcel" class="p-3 bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-lg">
+                <button type="button" @onclick="ExportarExcel" class="p-3 bg-emerald-600/20 border border-emerald-500/30 text-emerald-500 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-lg">
                     <i class="bi bi-file-earmark-excel"></i>
                 </button>
-                <button @onclick="ExportarPdf" class="p-3 bg-rose-600/20 border border-rose-500/30 text-rose-500 rounded-2xl hover:bg-rose-600 hover:text-white transition-all shadow-lg">
+                <button type="button" @onclick="ExportarPdf" class="p-3 bg-rose-600/20 border border-rose-500/30 text-rose-500 rounded-2xl hover:bg-rose-600 hover:text-white transition-all shadow-lg">
                     <i class="bi bi-file-earmark-pdf"></i>
                 </button>
             </div>
@@ -29,7 +29,7 @@
                        class="bg-slate-900 border border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white w-full sm:w-64 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" />
             </div>
 
-            <button @onclick="NuevaFactura" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">
+            <button type="button" @onclick="IrANuevaFactura" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">
                 <i class="bi bi-plus-lg mr-2"></i> Crear Factura
             </button>
         </div>
@@ -37,7 +37,7 @@
 
     @* LISTADO DE FACTURAS *@
     <div class="bg-[#0f172a] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-        <table class="w-full text-left">
+        <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-slate-800">
                     <th class="p-5">Nº Factura</th>
@@ -49,24 +49,62 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/50 text-white">
-                @* Simulación de datos para ejemplo o mapeo de tu lista real *@
-                @foreach (var factura in FacturasFiltradas)
+                @if (ListaFacturas == null)
                 {
-                    <tr class="hover:bg-white/[0.02] transition-colors">
-                        <td class="p-5 font-mono text-blue-400 font-bold">@factura.Codigo</td>
-                        <td class="p-5 text-sm text-slate-400">@factura.Fecha.ToString("dd/MM/yyyy")</td>
-                        <td class="p-5 text-sm font-semibold">@factura.ClienteNombre</td>
-                        <td class="p-5">
-                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter @GetEstadoClass(factura.Estado)">
-                                @factura.Estado
-                            </span>
-                        </td>
-                        <td class="p-5 font-mono font-bold text-lg">@factura.Total.ToString("N2")€</td>
-                        <td class="p-5 text-right">
-                            <button class="p-2 hover:text-blue-400 transition-colors"><i class="bi bi-eye"></i></button>
-                            <button class="p-2 hover:text-rose-500 transition-colors"><i class="bi bi-download"></i></button>
+                    <tr>
+                        <td colspan="6" class="p-20 text-center">
+                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                            <p class="mt-4 text-slate-500 font-bold uppercase text-xs tracking-widest">Cargando facturas...</p>
                         </td>
                     </tr>
+                }
+                else if (!FacturasFiltradas.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="p-20 text-center">
+                            <i class="bi bi-file-earmark-x text-4xl text-slate-700 block mb-4"></i>
+                            <p class="text-slate-500 font-bold uppercase text-xs tracking-widest">No se encontraron facturas</p>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var fac in FacturasFiltradas)
+                    {
+                        <tr class="hover:bg-white/[0.02] transition-colors @(fac.Tipo == TipoDocumento.FacturaRectificativa ? "bg-orange-500/5" : "")">
+                            <td class="p-5 font-mono font-bold @(fac.Tipo == TipoDocumento.FacturaRectificativa ? "text-orange-400" : "text-blue-400")">
+                                @fac.NumeroDocumento
+                            </td>
+                            <td class="p-5 text-sm text-slate-400">@fac.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td class="p-5 text-sm font-semibold">@fac.Cliente?.RazonSocial</td>
+                            <td class="p-5">
+                                <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter @GetEstadoClass(fac)">
+                                    @(fac.Tipo == TipoDocumento.FacturaRectificativa ? "RECTIFICATIVA" : "EMITIDA")
+                                </span>
+                            </td>
+                            <td class="p-5 font-mono font-bold text-lg @(fac.Total < 0 ? "text-rose-400" : "")">
+                                @fac.Total.ToString("N2")€
+                            </td>
+                            <td class="p-5 text-right space-x-1">
+                                <button type="button" @onclick="() => VerDetalle(fac.Id)" class="p-2 hover:text-blue-400 transition-colors" title="Ver Detalle">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                
+                                @if (fac.Tipo == TipoDocumento.Factura)
+                                {
+                                    <button type="button" @onclick="() => IrARectificar(fac.Id)" 
+                                            title="Generar Factura Rectificativa"
+                                            class="p-2 text-orange-500 hover:bg-orange-500/10 rounded-xl transition-all">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                }
+                                
+                                <button type="button" @onclick="() => DescargarPdf(fac.Id)" class="p-2 hover:text-rose-500 transition-colors" title="Descargar PDF">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -75,70 +113,72 @@
 
 @code {
     private string Busqueda = "";
-    private List<FacturaDTO> ListaFacturas = new(); // Cambiar por tu entidad real
+    private List<DocumentoComercial>? ListaFacturas;
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulamos carga de datos o llamada a servicio
-        await CargarFacturas();
+        await CargarDatos();
     }
 
-    private async Task CargarFacturas()
+    private async Task CargarDatos()
     {
-        // Aquí iría tu: ListaFacturas = await FacturaService.GetFacturasAsync();
-        // Simulación:
-        ListaFacturas = new List<FacturaDTO>
+        try 
         {
-            new FacturaDTO { Codigo = "FAC-2026-001", Fecha = DateTime.Now, ClienteNombre = "Industrial S.A.", Estado = "Cobrada", Total = 1250.50m },
-            new FacturaDTO { Codigo = "FAC-2026-002", Fecha = DateTime.Now, ClienteNombre = "Talleres Vega", Estado = "Pendiente", Total = 450.00m }
-        };
-        await Task.CompletedTask; 
+            var docs = await Http.GetFromJsonAsync<List<DocumentoComercial>>("api/CicloFacturacion");
+            if (docs != null)
+            {
+                ListaFacturas = docs.Where(d => d.Tipo == TipoDocumento.Factura || d.Tipo == TipoDocumento.FacturaRectificativa)
+                                    .OrderByDescending(d => d.Fecha)
+                                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            ListaFacturas = new List<DocumentoComercial>();
+        }
     }
 
-    private IEnumerable<FacturaDTO> FacturasFiltradas => 
-        ListaFacturas.Where(f => f.Codigo.Contains(Busqueda, StringComparison.OrdinalIgnoreCase) || 
-                                 f.ClienteNombre.Contains(Busqueda, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<DocumentoComercial> FacturasFiltradas => 
+        (ListaFacturas ?? new List<DocumentoComercial>())
+        .Where(f => (f.NumeroDocumento ?? "").Contains(Busqueda, StringComparison.OrdinalIgnoreCase) || 
+                     (f.Cliente?.RazonSocial ?? "").Contains(Busqueda, StringComparison.OrdinalIgnoreCase));
 
-    private string GetEstadoClass(string estado) => estado switch
+    private string GetEstadoClass(DocumentoComercial f) => f.Tipo switch
     {
-        "Cobrada" => "bg-emerald-500/10 text-emerald-500",
-        "Pendiente" => "bg-amber-500/10 text-amber-500",
-        _ => "bg-slate-500/10 text-slate-500"
+        TipoDocumento.FacturaRectificativa => "bg-orange-500/10 text-orange-500",
+        _ => "bg-blue-500/10 text-blue-500"
     };
 
-    // --- CORRECCIÓN CS1998 Y MÉTODOS DE EXPORTACIÓN ---
+    // Métodos de navegación limpios para evitar errores de sintaxis en el HTML
+    private void IrANuevaFactura() => Nav.NavigateTo("/ventas/nueva-factura");
+    
+    private void IrARectificar(int id) => Nav.NavigateTo($"/ventas/rectificar/{id}");
 
-    private void NuevaFactura() // Cambiado a void si no hay await, o Task si navegarás
+    private void VerDetalle(int id) => Nav.NavigateTo($"/ventas/detalle-factura/{id}");
+
+    private async Task DescargarPdf(int id)
     {
-        // Lógica para abrir modal o navegar
+        // Implementación de descarga
+        await Task.CompletedTask;
     }
 
     private async Task ExportarExcel()
     {
-        var data = FacturasFiltradas.Select(f => new { f.Codigo, f.Fecha, f.ClienteNombre, f.Estado, f.Total });
-        await JS.InvokeVoidAsync("exportToExcel", data, "Facturacion_Ventas");
+        var data = FacturasFiltradas.Select(f => new { f.NumeroDocumento, f.Fecha, Cliente = f.Cliente?.RazonSocial, f.Total });
+        await JS.InvokeVoidAsync("exportToExcel", data, "Facturacion_2026");
     }
 
     private async Task ExportarPdf()
     {
-        var headers = new string[] { "Código", "Fecha", "Cliente", "Estado", "Total" };
+        var headers = new string[] { "Nº Factura", "Fecha", "Cliente", "Total" };
         var rows = FacturasFiltradas.Select(f => new string[] { 
-            f.Codigo, 
+            f.NumeroDocumento ?? "", 
             f.Fecha.ToShortDateString(), 
-            f.ClienteNombre, 
-            f.Estado, 
+            f.Cliente?.RazonSocial ?? "", 
             f.Total.ToString("N2") + "€" 
         }).ToList();
 
-        await JS.InvokeVoidAsync("exportToPdf", "Reporte de Facturación", headers, rows, "Facturas_Ventas");
-    }
-
-    // Clase temporal para el ejemplo
-    public class FacturaDTO {
-        public string Codigo { get; set; } = "";
-        public DateTime Fecha { get; set; }
-        public string ClienteNombre { get; set; } = "";
-        public string Estado { get; set; } = "";
-        public decimal Total { get; set; }
+        await JS.InvokeVoidAsync("exportToPdf", "Listado de Facturación", headers, rows, "Reporte_Facturas");
     }
 }

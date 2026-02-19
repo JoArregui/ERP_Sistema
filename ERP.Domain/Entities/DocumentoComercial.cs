@@ -61,10 +61,14 @@ namespace ERP.Domain.Entities
 
         public string? Observaciones { get; set; } 
 
-        // --- NUEVA PROPIEDAD PARA EL CIERRE ---
+        // --- PROPIEDAD PARA EL CIERRE ---
         [StringLength(100)]
-        public string? UsuarioNombre { get; set; } 
+        public string? UsuarioNombre { get; set; }
 
-        public virtual ICollection<DocumentoLinea> Lineas { get; set; } = new List<DocumentoLinea>();
+        // --- PROPIEDAD REQUERIDA POR EL COMPONENTE (Error CS1061) ---
+        public string? NotasInternas { get; set; }
+
+        // Cambiamos a List para permitir la instanciación directa en el componente (Error CS0144)
+        public virtual List<DocumentoLinea> Lineas { get; set; } = new List<DocumentoLinea>();
     }
 }

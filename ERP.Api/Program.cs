@@ -83,7 +83,7 @@ builder.Services.AddScoped<NominaService>();
 builder.Services.AddScoped<PdfService>();
 builder.Services.AddScoped<StockService>(); 
 builder.Services.AddScoped<ComprasService>();
-builder.Services.AddScoped<CicloFacturacionService>();
+builder.Services.AddScoped<ERP.Application.Services.CicloFacturacionService>();
 builder.Services.AddScoped<FacturacionService>();
 
 builder.Services.AddControllers();

@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using ERP.Domain.Entities;
-using ERP.Services;
 using ERP.Data;
 using Microsoft.EntityFrameworkCore;
+using ERP.Application.Services; // Namespace unificado
 
 namespace ERP.Api.Controllers
 {
@@ -10,6 +10,7 @@ namespace ERP.Api.Controllers
     [Route("api/[controller]")]
     public class CicloFacturacionController : ControllerBase
     {
+        // Corregido: Referencia directa al servicio de Application.Services
         private readonly CicloFacturacionService _cicloService;
         private readonly ApplicationDbContext _context;
 
@@ -25,6 +26,7 @@ namespace ERP.Api.Controllers
             return await _context.Documentos
                 .Include(d => d.Cliente)
                 .Include(d => d.Lineas)
+                .OrderByDescending(d => d.Fecha)
                 .ToListAsync();
         }
 
@@ -33,14 +35,33 @@ namespace ERP.Api.Controllers
         {
             try
             {
-                // Al convertir a FACTURA, el CicloFacturacionService debería llamar internamente 
-                // al StockService para que el flujo sea automático.
                 var documentoNuevo = await _cicloService.ConvertirDocumento(id, nuevoTipo);
                 return Ok(documentoNuevo);
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpDelete("albaran/{id}")]
+        public async Task<IActionResult> EliminarAlbaran(int id)
+        {
+            try
+            {
+                // Ahora el compilador encontrará el método correctamente
+                var exito = await _cicloService.IntentarEliminarAlbaran(id);
+                
+                if (exito)
+                {
+                    return Ok(new { Message = "Albarán eliminado y stock liberado correctamente." });
+                }
+                
+                return NotFound(new { Message = "El albarán no existe." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
             }
         }
     }
