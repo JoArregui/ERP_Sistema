@@ -55,7 +55,7 @@ namespace ERP.API.Controllers
                     Terminal = "TPV-01",
                     TotalVentasEfectivo = docs.Where(d => d.MetodoPago == "Efectivo").Sum(d => d.Total),
                     TotalVentasTarjeta = docs.Where(d => d.MetodoPago == "Tarjeta").Sum(d => d.Total),
-                    
+
                     Base21 = lineas.Where(l => l.PorcentajeIva == 21).Sum(l => l.Cantidad * l.PrecioUnitario),
                     Iva21 = lineas.Where(l => l.PorcentajeIva == 21).Sum(l => (l.Cantidad * l.PrecioUnitario) * 0.21m),
                     Base10 = lineas.Where(l => l.PorcentajeIva == 10).Sum(l => l.Cantidad * l.PrecioUnitario),
@@ -66,7 +66,7 @@ namespace ERP.API.Controllers
                     TotalIva = docs.Sum(d => d.TotalIva),
                     DataCategoriasJson = JsonSerializer.Serialize(ventasPorCategoria),
                     DataUsuariosJson = JsonSerializer.Serialize(ventasPorUsuario),
-                    Observaciones = "" 
+                    Observaciones = ""
                 };
 
                 return Ok(cierre);
@@ -123,6 +123,16 @@ namespace ERP.API.Controllers
 
             var pdfBytes = _pdfService.GenerarCierreCajaPdf(cierre, cierre.Empresa);
             return File(pdfBytes, "application/pdf", $"Cierre_{cierre.FechaCierre:yyyyMMdd}_{id}.pdf");
+        }
+
+        [HttpGet("historial/{empresaId}")]
+        public async Task<ActionResult<List<CierreCaja>>> GetHistorial(int empresaId)
+        {
+            return await _context.CierresCaja
+                .Where(c => c.EmpresaId == empresaId)
+                .OrderByDescending(c => c.FechaCierre)
+                .Take(50) // Limitamos a los últimos 50 por rendimiento
+                .ToListAsync();
         }
     }
 }
